@@ -2,18 +2,20 @@ use crate::{matrix::Matrix, optim::Optimizer};
 
 use super::{Operation, OperationBase};
 
-struct Constant {
+pub struct InputPlaceholder {
     value: Matrix,
 }
 
-impl Constant {
-    fn new(value: Matrix) -> Operation {
-        Operation::new(Self { value })
+impl InputPlaceholder {
+    pub fn new() -> Operation {
+        Operation::new(Self {
+            value: Matrix::zeros(0, 0),
+        })
     }
 }
 
-impl OperationBase for Constant {
-    fn run(&mut self) -> &Matrix {
+impl OperationBase for InputPlaceholder {
+    fn run(&mut self) -> Matrix {
         self.get_output()
     }
 
@@ -21,14 +23,12 @@ impl OperationBase for Constant {
 
     fn back_grad(&mut self, _: Matrix) {}
 
-    fn get_output(&self) -> &Matrix {
-        &self.value
+    fn get_output(&self) -> Matrix {
+        self.value.clone()
     }
-}
 
-impl Matrix {
-    pub fn const_op(&self) -> Operation {
-        Constant::new(self.clone())
+    fn set_input(&mut self, input: Matrix) {
+        self.value = input;
     }
 }
 
@@ -49,7 +49,7 @@ impl Variable {
 }
 
 impl OperationBase for Variable {
-    fn run(&mut self) -> &Matrix {
+    fn run(&mut self) -> Matrix {
         self.get_output()
     }
 
@@ -59,11 +59,29 @@ impl OperationBase for Variable {
     }
 
     fn back_grad(&mut self, grad: Matrix) {
-        self.grad.set(&grad);
+        let new_grad = if grad.get_width() == self.grad.get_width()
+            && grad.get_height() == self.grad.get_height()
+        {
+            Matrix::new(
+                grad.get_height(),
+                grad.get_width(),
+                grad.chain_zip_data(&self.grad, |data_zip| {
+                    data_zip.map(|(v0, v1)| v0 + v1).collect()
+                }),
+            )
+        } else {
+            grad
+        };
+
+        self.grad.set(&new_grad);
     }
 
-    fn get_output(&self) -> &Matrix {
-        &self.value
+    fn get_output(&self) -> Matrix {
+        self.value.clone()
+    }
+
+    fn set_input(&mut self, input: Matrix) {
+        self.value.set(&input);
     }
 }
 

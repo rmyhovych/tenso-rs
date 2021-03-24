@@ -27,7 +27,8 @@ impl Optimizer for SGDOptimizer {
                     let current_value = value.get_value(y, x);
                     let grad_value = grad.get_value(y, x);
 
-                    value.set_value(current_value - self.lr * grad_value, y, x);
+                    let new_value = current_value - self.lr * grad_value;
+                    value.set_value(new_value, y, x);
                 }
             }
 

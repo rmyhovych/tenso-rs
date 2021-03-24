@@ -1,49 +1,59 @@
 use crate::matrix::Matrix;
-use std::boxed::Box;
+use std::{boxed::Box, cell::RefCell, rc::Rc};
 
 pub mod basic;
 pub mod input;
+pub mod more;
 
 /*------------------------------------------------------------------------------------------------*/
 
+#[derive(Clone)]
 pub struct Operation {
-    op: Box<dyn OperationBase>,
+    op: Rc<RefCell<dyn OperationBase>>,
 }
 
 impl Operation {
     fn new(op: impl OperationBase + 'static) -> Self {
-        Self { op: Box::new(op) }
+        Self {
+            op: Rc::new(RefCell::new(op)),
+        }
     }
 
-    pub fn run(&mut self) -> &Matrix {
-        self.op.run()
+    pub fn run(&mut self) -> Matrix {
+        self.op.borrow_mut().run()
     }
 
     pub fn back(&mut self) {
-        self.op.back();
+        self.op.borrow_mut().back();
     }
 
-    pub fn get_output(&self) -> &Matrix {
-        self.op.get_output()
+    pub fn get_output(&self) -> Matrix {
+        self.op.borrow().get_output()
+    }
+
+    pub fn set_input(&mut self, input: Matrix) {
+        self.op.borrow_mut().set_input(input);
     }
 
     /*------------------------------------------------------*/
 
     fn back_grad(&mut self, grad: Matrix) {
-        self.op.back_grad(grad);
+        self.op.borrow_mut().back_grad(grad);
     }
 }
 
 /*------------------------------------------------------------------------------------------------*/
 
 trait OperationBase {
-    fn run(&mut self) -> &Matrix;
+    fn run(&mut self) -> Matrix;
 
     fn back(&mut self);
 
     fn back_grad(&mut self, grad: Matrix);
 
-    fn get_output(&self) -> &Matrix;
+    fn get_output(&self) -> Matrix;
+
+    fn set_input(&mut self, input: Matrix);
 }
 
 /*------------------------------------------------------------------------------------------------*/
@@ -76,11 +86,11 @@ impl UnaryOperation {
 }
 
 impl OperationBase for UnaryOperation {
-    fn run(&mut self) -> &Matrix {
+    fn run(&mut self) -> Matrix {
         let out_input = self.op_input.run();
-        self.output = self.func_output.as_ref()(out_input);
+        self.output = self.func_output.as_ref()(&out_input);
 
-        &self.output
+        self.output.clone()
     }
 
     fn back(&mut self) {
@@ -92,9 +102,11 @@ impl OperationBase for UnaryOperation {
         self.func_grad.as_ref()(&mut self.op_input, &grad);
     }
 
-    fn get_output(&self) -> &Matrix {
-        &self.output
+    fn get_output(&self) -> Matrix {
+        self.output.clone()
     }
+
+    fn set_input(&mut self, _: Matrix) {}
 }
 
 /*------------------------------------------------------------------------------------------------*/
@@ -130,13 +142,13 @@ impl BinaryOperation {
 }
 
 impl OperationBase for BinaryOperation {
-    fn run(&mut self) -> &Matrix {
+    fn run(&mut self) -> Matrix {
         let out_left = self.op_left.run();
         let out_right = self.op_right.run();
 
-        self.output = self.func_output.as_ref()(out_left, out_right);
+        self.output = self.func_output.as_ref()(&out_left, &out_right);
 
-        &self.output
+        self.output.clone()
     }
 
     fn back(&mut self) {
@@ -148,9 +160,11 @@ impl OperationBase for BinaryOperation {
         self.func_grad.as_ref()(&mut self.op_left, &mut self.op_right, &grad);
     }
 
-    fn get_output(&self) -> &Matrix {
-        &self.output
+    fn get_output(&self) -> Matrix {
+        self.output.clone()
     }
+
+    fn set_input(&mut self, _: Matrix) {}
 }
 
 /*------------------------------------------------------------------------------------------------*/

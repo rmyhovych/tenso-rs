@@ -88,6 +88,59 @@ impl Operation {
             },
         )
     }
+
+    pub fn cross(self, other: Operation) -> Operation {
+        BinaryOperation::new(
+            self,
+            other,
+            |in_left, in_right| {
+                assert_eq!(in_left.get_width(), in_right.get_height());
+
+                let mut result = Matrix::zeros(in_left.get_height(), in_right.get_width());
+                for y in 0..in_left.get_height() {
+                    for x in 0..in_right.get_width() {
+                        let mut val: f32 = 0.0;
+                        for i in 0..in_left.get_width() {
+                            val += in_left.get_value(y, i) * in_right.get_value(i, x);
+                        }
+                        result.set_value(val, y, x);
+                    }
+                }
+
+                result
+            },
+            |op_left, op_right, grad| {
+                let input_left = op_left.get_output();
+                let input_right = op_right.get_output();
+
+                let mut grad_left = Matrix::zeros(input_left.get_height(), input_left.get_width());
+                for y in 0..grad_left.get_height() {
+                    for x in 0..grad_left.get_width() {
+                        let mut val: f32 = 0.0;
+                        for i in 0..grad.get_width() {
+                            val += grad.get_value(y, i) * input_right.get_value(x, i);
+                        }
+                        grad_left.set_value(val, y, x);
+                    }
+                }
+
+                let mut grad_right =
+                    Matrix::zeros(input_right.get_height(), input_right.get_width());
+                for y in 0..grad_right.get_height() {
+                    for x in 0..grad_right.get_width() {
+                        let mut val: f32 = 0.0;
+                        for i in 0..grad.get_height() {
+                            val += grad.get_value(i, x) * input_left.get_value(i, y);
+                        }
+                        grad_right.set_value(val, y, x);
+                    }
+                }
+
+                op_left.back_grad(grad_left);
+                op_right.back_grad(grad_right);
+            },
+        )
+    }
 }
 
 impl Add for Operation {
@@ -143,7 +196,7 @@ impl Mul for Operation {
                 )
             },
             |op_left, op_right, grad| {
-                op_left.back_grad(Matrix::new(
+                op_right.back_grad(Matrix::new(
                     grad.get_height(),
                     grad.get_width(),
                     op_left
