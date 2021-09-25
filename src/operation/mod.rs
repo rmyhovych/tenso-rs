@@ -3,7 +3,7 @@ use std::{boxed::Box, cell::RefCell, rc::Rc};
 
 pub mod basic;
 pub mod input;
-pub mod more;
+pub mod math;
 
 /*------------------------------------------------------------------------------------------------*/
 

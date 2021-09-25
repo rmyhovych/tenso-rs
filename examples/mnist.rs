@@ -95,18 +95,18 @@ fn main() {
     let out_size: usize = 10;
 
     let mut inputs: Vec<Matrix> = to_vectors(image_data, in_size);
-    inputs.truncate(500);
+    inputs.truncate(64);
 
     let mut labels: Vec<Matrix> = to_one_hot_vectors(label_data, out_size);
-    labels.truncate(500);
+    labels.truncate(64);
 
     let mut input_ph = InputPlaceholder::new();
     let mut label_ph = InputPlaceholder::new();
 
-    let mut optim = SGDOptimizer::new(0.001);
+    let mut optim = SGDOptimizer::new(0.01);
 
-    let mut net = linear(&input_ph, &mut optim, in_size, 32).sigmoid();
-    net = linear(&net, &mut optim, 32, out_size).sigmoid();
+    let mut net = linear(&input_ph, &mut optim, in_size, 16).sigmoid();
+    net = linear(&net, &mut optim, 16, out_size).sigmoid();
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
 
