@@ -7,9 +7,14 @@ use tenso_rs::operation::{input::InputPlaceholder, Operation};
 use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
 use tenso_rs::{matrix::Matrix, optim::RunningOptimizer};
 
-fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
-    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
-    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
+fn linear(
+    input: &Operation,
+    optim: &mut dyn Optimizer,
+    in_size: usize,
+    out_size: usize,
+) -> Operation {
+    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable(optim);
+    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable(optim);
 
     weights.cross(input.clone()) + biases
 }
@@ -98,11 +103,12 @@ fn main() {
     let mut input_ph = InputPlaceholder::new();
     let mut label_ph = InputPlaceholder::new();
 
-    let mut net = linear(&input_ph, in_size, 16).sigmoid();
-    net = linear(&net, 16, out_size).sigmoid();
-
     let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
-    net.add_to_optimizer(&mut optim);
+
+    let mut net = linear(&input_ph, &mut optim, in_size, 16).sigmoid();
+    net = linear(&net, &mut optim, 16, out_size).sigmoid();
+
+    // net.add_to_optimizer(&mut optim);
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
 

@@ -1,6 +1,9 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::{matrix::Matrix, optim::Optimizer};
+use crate::{
+    matrix::Matrix,
+    optim::{self, Optimizer},
+};
 
 use super::{Operation, OperationBase};
 
@@ -46,12 +49,12 @@ struct Variable {
 }
 
 impl Variable {
-    fn new(value: Matrix) -> Operation {
-        let grad = Matrix::zeros(0, 0);
-        Operation::new(Self {
-            value: Rc::new(RefCell::new(value)),
-            grad: Rc::new(RefCell::new(grad)),
-        })
+    fn new(value: Matrix, optim: &mut dyn Optimizer) -> Operation {
+        let value = Rc::new(RefCell::new(value));
+        let grad = Rc::new(RefCell::new(Matrix::zeros(0, 0)));
+
+        optim.add_variable(Rc::clone(&value), Rc::clone(&grad));
+        Operation::new(Self { value, grad })
     }
 }
 
@@ -96,12 +99,12 @@ impl OperationBase for Variable {
     }
 
     fn add_to_optimizer(&self, optim: &mut dyn Optimizer) {
-        optim.add_variable(self.value.clone(), self.grad.clone());
+        optim.add_variable(Rc::clone(&self.value), Rc::clone(&self.grad));
     }
 }
 
 impl Matrix {
-    pub fn as_variable(self) -> Operation {
-        Variable::new(self)
+    pub fn as_variable(self, optim: &mut dyn Optimizer) -> Operation {
+        Variable::new(self, optim)
     }
 }
