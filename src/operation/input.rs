@@ -49,11 +49,10 @@ struct Variable {
 }
 
 impl Variable {
-    fn new(value: Matrix, optim: &mut dyn Optimizer) -> Operation {
+    fn new(value: Matrix) -> Operation {
         let value = Rc::new(RefCell::new(value));
         let grad = Rc::new(RefCell::new(Matrix::zeros(0, 0)));
 
-        optim.add_variable(Rc::clone(&value), Rc::clone(&grad));
         Operation::new(Self { value, grad })
     }
 }
@@ -73,13 +72,14 @@ impl OperationBase for Variable {
     }
 
     fn back_grad(&mut self, grad: Matrix) {
-        let new_grad = if grad.get_width() == self.grad.borrow().get_width()
-            && grad.get_height() == self.grad.borrow().get_height()
+        let mut grad_borrow = self.grad.borrow_mut();
+        let new_grad = if grad.get_width() == grad_borrow.get_width()
+            && grad.get_height() == grad_borrow.get_height()
         {
             Matrix::new(
                 grad.get_height(),
                 grad.get_width(),
-                grad.chain_zip_data(&self.grad.borrow().deref(), |data_zip| {
+                grad.chain_zip_data(grad_borrow.deref(), |data_zip| {
                     data_zip.map(|(v0, v1)| v0 + v1).collect()
                 }),
             )
@@ -87,7 +87,7 @@ impl OperationBase for Variable {
             grad
         };
 
-        *self.grad.borrow_mut() = new_grad;
+        grad_borrow.set(new_grad);
     }
 
     fn get_output(&self) -> Matrix {
@@ -95,7 +95,7 @@ impl OperationBase for Variable {
     }
 
     fn set_input(&mut self, input: Matrix) {
-        *self.value.borrow_mut() = input;
+        self.value.borrow_mut().set(input);
     }
 
     fn add_to_optimizer(&self, optim: &mut dyn Optimizer) {
@@ -104,7 +104,7 @@ impl OperationBase for Variable {
 }
 
 impl Matrix {
-    pub fn as_variable(self, optim: &mut dyn Optimizer) -> Operation {
-        Variable::new(self, optim)
+    pub fn as_variable(self) -> Operation {
+        Variable::new(self)
     }
 }
