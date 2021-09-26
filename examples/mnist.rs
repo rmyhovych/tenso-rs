@@ -3,18 +3,13 @@ use std::{
     io::Read,
 };
 
-use tenso_rs::matrix::Matrix;
 use tenso_rs::operation::{input::InputPlaceholder, Operation};
-use tenso_rs::optim::{sgd::SGDOptimizer, Optimizer};
+use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
+use tenso_rs::{matrix::Matrix, optim::RunningOptimizer};
 
-fn linear(
-    input: &Operation,
-    optim: &mut dyn Optimizer,
-    in_size: usize,
-    out_size: usize,
-) -> Operation {
-    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).var_op(optim);
-    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).var_op(optim);
+fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
+    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
+    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
 
     weights.cross(input.clone()) + biases
 }
@@ -69,12 +64,12 @@ fn is_accurate(y: &Matrix, label: &Matrix) -> bool {
     let mut max_real_index = 0;
 
     for i in 0..10 {
-        let label_val = label.get_value(i, 0);
+        let label_val = label[i][0];
         if label_val == 1.0 {
             max_real_index = i;
         }
 
-        let val = y.get_value(i, 0);
+        let val = y[i][0];
         if val > max_val {
             max_index = i;
             max_val = val;
@@ -103,10 +98,11 @@ fn main() {
     let mut input_ph = InputPlaceholder::new();
     let mut label_ph = InputPlaceholder::new();
 
-    let mut optim = SGDOptimizer::new(0.01);
+    let mut net = linear(&input_ph, in_size, 16).sigmoid();
+    net = linear(&net, 16, out_size).sigmoid();
 
-    let mut net = linear(&input_ph, &mut optim, in_size, 16).sigmoid();
-    net = linear(&net, &mut optim, 16, out_size).sigmoid();
+    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
+    net.add_to_optimizer(&mut optim);
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
 
@@ -119,7 +115,7 @@ fn main() {
             label_ph.set_input(label.clone());
 
             let loss = loss_f.run();
-            loss_sum += loss.get_value(0, 0);
+            loss_sum += loss[0][0];
 
             let net_out = net.get_output();
             if is_accurate(&net_out, label) {

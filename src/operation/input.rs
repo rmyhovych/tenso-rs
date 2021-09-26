@@ -1,6 +1,10 @@
+use std::{cell::RefCell, ops::Deref, rc::Rc};
+
 use crate::{matrix::Matrix, optim::Optimizer};
 
 use super::{Operation, OperationBase};
+
+/*------------------------------------------------------------------------------------------------*/
 
 pub struct InputPlaceholder {
     value: Matrix,
@@ -30,21 +34,24 @@ impl OperationBase for InputPlaceholder {
     fn set_input(&mut self, input: Matrix) {
         self.value = input;
     }
+
+    fn add_to_optimizer(&self, _: &mut dyn Optimizer) {}
 }
 
 /*------------------------------------------------------------------------------------------------*/
 
 struct Variable {
-    value: Matrix,
-    grad: Matrix,
+    value: Rc<RefCell<Matrix>>,
+    grad: Rc<RefCell<Matrix>>,
 }
 
 impl Variable {
-    fn new(value: Matrix, optim: &mut dyn Optimizer) -> Operation {
+    fn new(value: Matrix) -> Operation {
         let grad = Matrix::zeros(0, 0);
-        optim.add_var(value.clone(), grad.clone());
-
-        Operation::new(Self { value, grad })
+        Operation::new(Self {
+            value: Rc::new(RefCell::new(value)),
+            grad: Rc::new(RefCell::new(grad)),
+        })
     }
 }
 
@@ -54,18 +61,22 @@ impl OperationBase for Variable {
     }
 
     fn back(&mut self) {
-        let grad = Matrix::from_const(self.value.get_height(), self.value.get_width(), 1.0);
+        let grad = Matrix::from_const(
+            self.value.borrow().get_height(),
+            self.value.borrow().get_width(),
+            1.0,
+        );
         self.back_grad(grad);
     }
 
     fn back_grad(&mut self, grad: Matrix) {
-        let new_grad = if grad.get_width() == self.grad.get_width()
-            && grad.get_height() == self.grad.get_height()
+        let new_grad = if grad.get_width() == self.grad.borrow().get_width()
+            && grad.get_height() == self.grad.borrow().get_height()
         {
             Matrix::new(
                 grad.get_height(),
                 grad.get_width(),
-                grad.chain_zip_data(&self.grad, |data_zip| {
+                grad.chain_zip_data(&self.grad.borrow().deref(), |data_zip| {
                     data_zip.map(|(v0, v1)| v0 + v1).collect()
                 }),
             )
@@ -73,20 +84,24 @@ impl OperationBase for Variable {
             grad
         };
 
-        self.grad.set(&new_grad);
+        *self.grad.borrow_mut() = new_grad;
     }
 
     fn get_output(&self) -> Matrix {
-        self.value.clone()
+        self.value.borrow().clone()
     }
 
     fn set_input(&mut self, input: Matrix) {
-        self.value.set(&input);
+        *self.value.borrow_mut() = input;
+    }
+
+    fn add_to_optimizer(&self, optim: &mut dyn Optimizer) {
+        optim.add_variable(self.value.clone(), self.grad.clone());
     }
 }
 
 impl Matrix {
-    pub fn var_op(&self, optim: &mut dyn Optimizer) -> Operation {
-        Variable::new(self.clone(), optim)
+    pub fn as_variable(self) -> Operation {
+        Variable::new(self)
     }
 }
