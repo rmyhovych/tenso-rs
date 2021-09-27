@@ -1,9 +1,6 @@
 use std::{cell::RefCell, ops::Deref, rc::Rc};
 
-use crate::{
-    matrix::Matrix,
-    optim::{self, Optimizer},
-};
+use crate::{matrix::Matrix, optim::Optimizer};
 
 use super::{Operation, OperationBase};
 
@@ -18,6 +15,12 @@ impl InputPlaceholder {
         Operation::new(Self {
             value: Matrix::zeros(0, 0),
         })
+    }
+
+    pub fn with_value(value: Matrix) -> Operation {
+        let mut placeholder = Self::new();
+        placeholder.set_input(value);
+        placeholder
     }
 }
 

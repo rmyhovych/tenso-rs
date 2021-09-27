@@ -1,4 +1,8 @@
-use std::{cell::RefCell, ops::DerefMut, rc::Rc};
+use std::{
+    cell::{RefCell, RefMut},
+    ops::DerefMut,
+    rc::Rc,
+};
 
 use crate::matrix::Matrix;
 
@@ -11,7 +15,7 @@ pub trait Optimizer {
 }
 
 pub trait OptimizerRunner {
-    fn run(&mut self, value: &mut Matrix, grad: &mut Matrix);
+    fn run(&mut self, variables: Vec<(&mut Matrix, &mut Matrix)>);
 }
 
 pub struct RunningOptimizer<O: OptimizerRunner + 'static> {
@@ -34,11 +38,17 @@ impl<O: OptimizerRunner + 'static> Optimizer for RunningOptimizer<O> {
     }
 
     fn step(&mut self) {
-        for (value_rc, grad_rc) in &mut self.variables {
-            self.runner.run(
-                value_rc.borrow_mut().deref_mut(),
-                grad_rc.borrow_mut().deref_mut(),
-            );
-        }
+        let mut borrowed_variables = self
+            .variables
+            .iter()
+            .map(|(val, grad)| (val.borrow_mut(), grad.borrow_mut()))
+            .collect::<Vec<(RefMut<Matrix>, RefMut<Matrix>)>>();
+
+        let deref_variables = borrowed_variables
+            .iter_mut()
+            .map(|(val, grad)| (val.deref_mut(), grad.deref_mut()))
+            .collect::<Vec<(&mut Matrix, &mut Matrix)>>();
+
+        self.runner.run(deref_variables);
     }
 }

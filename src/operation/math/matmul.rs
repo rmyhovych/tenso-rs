@@ -3,11 +3,11 @@ use crate::{
     operation::{BinaryOperation, BinaryOperationRunner, Operation},
 };
 
-struct CrossRunner;
+struct MatrixMultiplicationRunner;
 
-impl BinaryOperationRunner for CrossRunner {
+impl BinaryOperationRunner for MatrixMultiplicationRunner {
     fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
-        assert_eq!(input_left.get_width(), input_right.get_height());
+        debug_assert_eq!(input_left.get_width(), input_right.get_height());
 
         let mut result = Matrix::zeros(input_left.get_height(), input_right.get_width());
         for y in 0..input_left.get_height() {
@@ -55,7 +55,7 @@ impl BinaryOperationRunner for CrossRunner {
 }
 
 impl Operation {
-    pub fn cross(self, rhs: Operation) -> Self {
-        BinaryOperation::new(self, rhs, CrossRunner)
+    pub fn mmul(self, rhs: Operation) -> Self {
+        BinaryOperation::new(self, rhs, MatrixMultiplicationRunner)
     }
 }

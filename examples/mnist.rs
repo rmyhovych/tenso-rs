@@ -1,8 +1,11 @@
 use std::{
+    error::Error,
     fs::{metadata, File},
     io::Read,
 };
 
+use plotters::prelude::*;
+use rand::{seq::index::sample, thread_rng};
 use tenso_rs::operation::{input::InputPlaceholder, Operation};
 use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
 use tenso_rs::{matrix::Matrix, optim::RunningOptimizer};
@@ -11,7 +14,7 @@ fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
     let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
     let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
 
-    weights.cross(input.clone()) + biases
+    weights.mmul(input.clone()) + biases
 }
 
 fn read_binary_file(filename: &str) -> Vec<u8> {
@@ -32,7 +35,7 @@ fn read_binary_file(filename: &str) -> Vec<u8> {
 }
 
 fn to_vectors(raw_data: Vec<u8>, len: usize) -> Vec<Matrix> {
-    assert_eq!(raw_data.len() % len, 0);
+    debug_assert_eq!(raw_data.len() % len, 0);
 
     let mut matrices = Vec::<Matrix>::with_capacity(raw_data.len() / len);
 
@@ -79,7 +82,55 @@ fn is_accurate(y: &Matrix, label: &Matrix) -> bool {
     max_index == max_real_index
 }
 
+fn plot_data(losses: Vec<f32>, accuracies: Vec<f32>) -> Result<(), Box<dyn Error>> {
+    let root = BitMapBackend::new("examples/mnist_result.png", (640, 480)).into_drawing_area();
+    root.fill(&WHITE);
+    let root = root.margin(10, 10, 10, 10);
+
+    let mut chart = ChartBuilder::on(&root)
+        // Set the caption of the chart
+        .caption("This is our first plot", ("sans-serif", 40).into_font())
+        // Set the size of the label region
+        .x_label_area_size(20)
+        .y_label_area_size(40)
+        // Finally attach a coordinate on the drawing area and make a chart context
+        .build_cartesian_2d(
+            0f32..(losses.len().max(accuracies.len()) as f32),
+            0f32..1f32,
+        )?;
+
+    // Then we can draw a mesh
+    chart
+        .configure_mesh()
+        // We can customize the maximum number of labels allowed for each axis
+        .x_labels(5)
+        .y_labels(5)
+        // We can also change the format of the label text
+        .y_label_formatter(&|x| format!("{:.3}", x))
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        (0..losses.len())
+            .zip(losses.into_iter())
+            .into_iter()
+            .map(|(index, loss)| (index as f32, loss)),
+        &RED,
+    ))?;
+
+    chart.draw_series(LineSeries::new(
+        (0..accuracies.len())
+            .zip(accuracies.into_iter())
+            .into_iter()
+            .map(|(index, accuracy)| (index as f32, accuracy)),
+        &BLUE,
+    ))?;
+
+    Ok(())
+}
+
 fn main() {
+    const SAMPLE_SIZE: usize = 128;
+
     let mut image_data = read_binary_file("data/mnist/train-images-idx3-ubyte");
     image_data.drain(0..16);
 
@@ -89,11 +140,8 @@ fn main() {
     let in_size: usize = 28 * 28;
     let out_size: usize = 10;
 
-    let mut inputs: Vec<Matrix> = to_vectors(image_data, in_size);
-    inputs.truncate(5);
-
-    let mut labels: Vec<Matrix> = to_one_hot_vectors(label_data, out_size);
-    labels.truncate(5);
+    let inputs: Vec<Matrix> = to_vectors(image_data, in_size);
+    let labels: Vec<Matrix> = to_one_hot_vectors(label_data, out_size);
 
     let mut input_ph = InputPlaceholder::new();
     let mut label_ph = InputPlaceholder::new();
@@ -106,11 +154,18 @@ fn main() {
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
 
-    for _ in 0..2000 {
+    let mut losses: Vec<f32> = Vec::new();
+    let mut accuracies: Vec<f32> = Vec::new();
+
+    let mut rng = thread_rng();
+    for _ in 0..20000 {
         let mut loss_sum: f32 = 0.0;
 
         let mut n_accurate: u32 = 0;
-        for (input, label) in inputs.iter().zip(labels.iter()) {
+        for (input, label) in sample(&mut rng, inputs.len(), SAMPLE_SIZE)
+            .into_iter()
+            .map(|index| (&inputs[index], &labels[index]))
+        {
             input_ph.set_input(input.clone());
             label_ph.set_input(label.clone());
 
@@ -126,7 +181,13 @@ fn main() {
         }
 
         optim.step();
-        println!("Accuracy: {}", n_accurate as f32 / inputs.len() as f32);
-        println!("Loss: {}\n", loss_sum / inputs.len() as f32);
+
+        losses.push(loss_sum / SAMPLE_SIZE as f32);
+        accuracies.push(n_accurate as f32 / SAMPLE_SIZE as f32);
+
+        println!("Accuracy: {}", accuracies.last().unwrap());
+        println!("Loss: {}\n", losses.last().unwrap());
     }
+
+    plot_data(losses, accuracies).unwrap();
 }

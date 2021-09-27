@@ -18,8 +18,8 @@ impl UnaryOperationRunner for MeanRunner {
     }
 
     fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        assert_eq!(grad.get_width(), 1);
-        assert_eq!(grad.get_height(), 1);
+        debug_assert_eq!(grad.get_width(), 1);
+        debug_assert_eq!(grad.get_height(), 1);
 
         let child_in = child.get_output();
         let mat_size = (child_in.get_width() * child_in.get_height()) as f32;

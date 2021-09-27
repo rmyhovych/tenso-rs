@@ -6,7 +6,6 @@ pub mod math;
 
 /*------------------------------------------------------------------------------------------------*/
 
-#[derive(Clone)]
 pub struct Operation {
     op: Rc<RefCell<dyn OperationBase>>,
 }
@@ -42,6 +41,14 @@ impl Operation {
 
     fn back_grad(&mut self, grad: Matrix) {
         self.op.borrow_mut().back_grad(grad);
+    }
+}
+
+impl Clone for Operation {
+    fn clone(&self) -> Self {
+        Operation {
+            op: Rc::clone(&self.op),
+        }
     }
 }
 
@@ -95,7 +102,12 @@ impl<R: UnaryOperationRunner> OperationBase for UnaryOperation<R> {
     }
 
     fn back(&mut self) {
-        let grad = Matrix::from_const(self.output.get_height(), self.output.get_width(), 1.0);
+        debug_assert!(
+            self.output.get_height() == 1 && self.output.get_width() == 1,
+            "Cant backpropagate a non-unit matrix!"
+        );
+
+        let grad = Matrix::from_const(1, 1, 1.0);
         self.back_grad(grad);
     }
 
@@ -154,7 +166,12 @@ impl<R: BinaryOperationRunner + 'static> OperationBase for BinaryOperation<R> {
     }
 
     fn back(&mut self) {
-        let grad = Matrix::from_const(self.output.get_height(), self.output.get_width(), 1.0);
+        debug_assert!(
+            self.output.get_height() == 1 && self.output.get_width() == 1,
+            "Cant backpropagate a non-unit matrix!"
+        );
+
+        let grad = Matrix::from_const(1, 1, 1.0);
         self.back_grad(grad);
     }
 

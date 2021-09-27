@@ -1,5 +1,5 @@
 pub mod add;
-pub mod cross;
+pub mod matmul;
 pub mod mean;
 pub mod mul;
 pub mod times;

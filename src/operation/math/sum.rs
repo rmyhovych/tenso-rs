@@ -11,8 +11,8 @@ impl UnaryOperationRunner for SumRunner {
     }
 
     fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        assert_eq!(grad.get_width(), 1);
-        assert_eq!(grad.get_height(), 1);
+        debug_assert_eq!(grad.get_width(), 1);
+        debug_assert_eq!(grad.get_height(), 1);
 
         let grad_val = grad[0][0];
 

@@ -9,8 +9,8 @@ struct AddRunner;
 
 impl BinaryOperationRunner for AddRunner {
     fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
-        assert_eq!(input_left.get_width(), input_right.get_width());
-        assert_eq!(input_left.get_height(), input_right.get_height());
+        debug_assert_eq!(input_left.get_width(), input_right.get_width());
+        debug_assert_eq!(input_left.get_height(), input_right.get_height());
 
         let out_data = input_left.chain_zip_data(input_right, |zip| {
             zip.map(|(v_left, v_right)| v_left + v_right).collect()

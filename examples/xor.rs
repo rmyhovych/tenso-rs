@@ -7,7 +7,7 @@ fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
     let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
     let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
 
-    weights.cross(input.clone()) + biases
+    weights.mmul(input.clone()) + biases
 }
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
 
     let net = linear(&linear(&input_ph, 2, 5).sigmoid(), 5, 1).sigmoid();
 
-    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.1));
+    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
     net.add_to_optimizer(&mut optim);
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
