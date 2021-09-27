@@ -60,11 +60,11 @@ impl Matrix {
         self.data = other.data;
     }
 
-    pub fn get_height(&self) -> usize {
+    pub fn height(&self) -> usize {
         self.height
     }
 
-    pub fn get_width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.width
     }
 

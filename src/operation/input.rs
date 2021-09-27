@@ -67,8 +67,8 @@ impl OperationBase for Variable {
 
     fn back(&mut self) {
         let grad = Matrix::from_const(
-            self.value.borrow().get_height(),
-            self.value.borrow().get_width(),
+            self.value.borrow().height(),
+            self.value.borrow().width(),
             1.0,
         );
         self.back_grad(grad);
@@ -76,12 +76,12 @@ impl OperationBase for Variable {
 
     fn back_grad(&mut self, grad: Matrix) {
         let mut grad_borrow = self.grad.borrow_mut();
-        let new_grad = if grad.get_width() == grad_borrow.get_width()
-            && grad.get_height() == grad_borrow.get_height()
+        let new_grad = if grad.width() == grad_borrow.width()
+            && grad.height() == grad_borrow.height()
         {
             Matrix::new(
-                grad.get_height(),
-                grad.get_width(),
+                grad.height(),
+                grad.width(),
                 grad.chain_zip_data(grad_borrow.deref(), |data_zip| {
                     data_zip.map(|(v0, v1)| v0 + v1).collect()
                 }),

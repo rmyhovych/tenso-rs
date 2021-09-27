@@ -103,7 +103,7 @@ impl<R: UnaryOperationRunner> OperationBase for UnaryOperation<R> {
 
     fn back(&mut self) {
         debug_assert!(
-            self.output.get_height() == 1 && self.output.get_width() == 1,
+            self.output.height() == 1 && self.output.width() == 1,
             "Cant backpropagate a non-unit matrix!"
         );
 
@@ -167,7 +167,7 @@ impl<R: BinaryOperationRunner + 'static> OperationBase for BinaryOperation<R> {
 
     fn back(&mut self) {
         debug_assert!(
-            self.output.get_height() == 1 && self.output.get_width() == 1,
+            self.output.height() == 1 && self.output.width() == 1,
             "Cant backpropagate a non-unit matrix!"
         );
 

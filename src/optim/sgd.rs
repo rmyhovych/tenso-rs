@@ -14,8 +14,8 @@ impl SGDOptimizerRunner {
 impl OptimizerRunner for SGDOptimizerRunner {
     fn run(&mut self, variables: Vec<(&mut Matrix, &mut Matrix)>) {
         for (value, grad) in variables {
-            for y in 0..value.get_height() {
-                for x in 0..value.get_width() {
+            for y in 0..value.height() {
+                for x in 0..value.width() {
                     let current_value = value[y][x];
                     let grad_value = grad[y][x];
 

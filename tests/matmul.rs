@@ -17,8 +17,8 @@ fn run() {
 
     let result = result_op.run();
     let expected_result = Matrix::new(3, 2, vec![8.0, 9.0, 36.0, 41.0, 64.0, 73.0]);
-    for y in 0..result.get_height() {
-        for x in 0..result.get_width() {
+    for y in 0..result.height() {
+        for x in 0..result.width() {
             assert_eq!(expected_result[y][x], result[y][x]);
         }
     }
@@ -31,11 +31,11 @@ struct TestOptimizer {
 impl OptimizerRunner for TestOptimizer {
     fn run(&mut self, variables: Vec<(&mut Matrix, &mut Matrix)>) {
         for ((_, grad), expected_grad) in variables.into_iter().zip(&self.expected_grads) {
-            assert_eq!(expected_grad.get_height(), grad.get_height());
-            assert_eq!(expected_grad.get_width(), grad.get_width());
+            assert_eq!(expected_grad.height(), grad.height());
+            assert_eq!(expected_grad.width(), grad.width());
 
-            for y in 0..grad.get_height() {
-                for x in 0..grad.get_width() {
+            for y in 0..grad.height() {
+                for x in 0..grad.width() {
                     assert_eq!(expected_grad[y][x], grad[y][x]);
                 }
             }
