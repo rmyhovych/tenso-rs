@@ -128,8 +128,13 @@ fn plot_data(losses: Vec<f32>, accuracies: Vec<f32>) -> Result<(), Box<dyn Error
     Ok(())
 }
 
+fn get_rolling_average(data: &Vec<f32>, size: usize) -> f32 {
+    let slice_start = (data.len() as i32 - size as i32).max(0) as usize;
+    data.as_slice()[slice_start..].iter().sum::<f32>() / (size.min(data.len()) as f32)
+}
+
 fn main() {
-    const SAMPLE_SIZE: usize = 128;
+    const SAMPLE_SIZE: usize = 16;
 
     let mut image_data = read_binary_file("data/mnist/train-images-idx3-ubyte");
     image_data.drain(0..16);
@@ -149,7 +154,7 @@ fn main() {
     let mut net = linear(&input_ph, in_size, 16).sigmoid();
     net = linear(&net, 16, out_size).sigmoid();
 
-    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
+    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.002));
     net.add_to_optimizer(&mut optim);
 
     let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
@@ -157,8 +162,14 @@ fn main() {
     let mut losses: Vec<f32> = Vec::new();
     let mut accuracies: Vec<f32> = Vec::new();
 
+    let mut average_losses: Vec<f32> = Vec::new();
+    let mut average_accuracies: Vec<f32> = Vec::new();
+
+
+    const DISPLAY_ROLLING_AVERAGE: usize = 1000;
+
     let mut rng = thread_rng();
-    for _ in 0..20000 {
+    for i in 0..200000 {
         let mut loss_sum: f32 = 0.0;
 
         let mut n_accurate: u32 = 0;
@@ -185,9 +196,17 @@ fn main() {
         losses.push(loss_sum / SAMPLE_SIZE as f32);
         accuracies.push(n_accurate as f32 / SAMPLE_SIZE as f32);
 
-        println!("Accuracy: {}", accuracies.last().unwrap());
-        println!("Loss: {}\n", losses.last().unwrap());
+        if i % DISPLAY_ROLLING_AVERAGE == 0 {
+            let average_accuracy = get_rolling_average(&accuracies, DISPLAY_ROLLING_AVERAGE);
+            let average_loss = get_rolling_average(&losses, DISPLAY_ROLLING_AVERAGE);
+
+            average_accuracies.push(average_accuracy);
+            average_losses.push(average_loss);
+
+            println!("Accuracy: {}", average_accuracy);
+            println!("Loss: {}\n", average_loss);
+        }
     }
 
-    plot_data(losses, accuracies).unwrap();
+    plot_data(average_losses, average_accuracies).unwrap();
 }
