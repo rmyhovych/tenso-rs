@@ -1,7 +1,9 @@
 use crate::{
     matrix::Matrix,
-    operation::{Operation, UnaryOperation, UnaryOperationRunner},
+    operation::{UnaryOperation, UnaryOperationRunner},
 };
+
+use super::OperationRef;
 
 struct SigmoidRunner;
 
@@ -25,24 +27,21 @@ impl UnaryOperationRunner for SigmoidRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        let child_in = child.get_output();
-        let child_grad = Matrix::new(
-            child_in.height(),
-            child_in.width(),
-            child_in.chain_zip_data(grad, |child_data| {
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        Matrix::new(
+            input.height(),
+            input.width(),
+            input.chain_zip_data(delta, |child_data| {
                 child_data
                     .map(|(ci, gr)| gr * Self::sigmoid_prime(*ci))
                     .collect()
             }),
-        );
-
-        child.back_grad(child_grad);
+        )
     }
 }
 
-impl Operation {
+impl OperationRef {
     pub fn sigmoid(self) -> Self {
-        UnaryOperation::new(self, SigmoidRunner)
+        UnaryOperation::new(&self, SigmoidRunner)
     }
 }

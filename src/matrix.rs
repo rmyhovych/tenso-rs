@@ -7,6 +7,8 @@ use std::{
 
 use rand::{distributions::Normal, Rng};
 
+/*------------------------------------------------------------------------------------------------*/
+
 #[derive(Clone)]
 pub struct Matrix {
     height: usize,
@@ -52,12 +54,6 @@ impl Matrix {
 
     pub fn clear(&mut self) {
         self.data.iter_mut().for_each(|v| *v = 0.0);
-    }
-
-    pub fn set(&mut self, other: Matrix) {
-        self.width = other.width;
-        self.height = other.height;
-        self.data = other.data;
     }
 
     pub fn height(&self) -> usize {

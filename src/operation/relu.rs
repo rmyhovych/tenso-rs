@@ -3,6 +3,8 @@ use crate::{
     operation::{Operation, UnaryOperation, UnaryOperationRunner},
 };
 
+use super::OperationRef;
+
 struct ReluRunner;
 
 impl UnaryOperationRunner for ReluRunner {
@@ -16,24 +18,21 @@ impl UnaryOperationRunner for ReluRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        let child_in = child.get_output();
-        let child_grad = Matrix::new(
-            child_in.height(),
-            child_in.width(),
-            child_in.chain_zip_data(grad, |child_data| {
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        Matrix::new(
+            input.height(),
+            input.width(),
+            input.chain_zip_data(delta, |child_data| {
                 child_data
                     .map(|(ci, gr)| if *ci > 0.0 { *gr } else { 0.0 })
                     .collect()
             }),
-        );
-
-        child.back_grad(child_grad);
+        )
     }
 }
 
-impl Operation {
+impl OperationRef {
     pub fn relu(self) -> Self {
-        UnaryOperation::new(self, ReluRunner)
+        UnaryOperation::new(&self, ReluRunner)
     }
 }

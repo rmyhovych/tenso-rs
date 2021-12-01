@@ -3,6 +3,8 @@ use crate::{
     operation::{Operation, UnaryOperation, UnaryOperationRunner},
 };
 
+use super::OperationRef;
+
 struct PowRunner {
     power: f32,
 }
@@ -16,24 +18,21 @@ impl UnaryOperationRunner for PowRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        let child_in = child.get_output();
-        let child_grad = Matrix::new(
-            child_in.height(),
-            child_in.width(),
-            child_in.chain_zip_data(grad, |child_data| {
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        Matrix::new(
+            input.height(),
+            input.width(),
+            input.chain_zip_data(delta, |child_data| {
                 child_data
                     .map(|(ci, gr)| gr * self.power * ci.powf(self.power - 1.0))
                     .collect()
             }),
-        );
-
-        child.back_grad(child_grad);
+        )
     }
 }
 
-impl Operation {
+impl OperationRef {
     pub fn pow(self, power: f32) -> Self {
-        UnaryOperation::new(self, PowRunner { power })
+        UnaryOperation::new(&self, PowRunner { power })
     }
 }

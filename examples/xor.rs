@@ -1,52 +1,63 @@
+use tenso_rs::activation::ActivationClosure;
 use tenso_rs::matrix::Matrix;
-use tenso_rs::operation::{input::InputPlaceholder, Operation};
-use tenso_rs::optim::RunningOptimizer;
-use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
-
-fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
-    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
-    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
-
-    weights.mmul(input.clone()) + biases
-}
+use tenso_rs::module::feedforward::{
+    FeedforwardLayers, FeedforwardModule, FeedforwardModuleRunner,
+};
+use tenso_rs::module::{Module, ModuleBase};
+use tenso_rs::operation::{Operation, OperationRef};
+use tenso_rs::optim::sgd::SGDOptimizerRunner;
+use tenso_rs::optim::OptimizerBase;
 
 fn main() {
-    let inputs: Vec<Matrix> = vec![
+    let inputs: Vec<OperationRef> = vec![
         Matrix::new(2, 1, vec![1.0, 0.0]),
         Matrix::new(2, 1, vec![0.0, 0.0]),
         Matrix::new(2, 1, vec![0.0, 1.0]),
         Matrix::new(2, 1, vec![1.0, 1.0]),
-    ];
-    let labels: Vec<Matrix> = vec![
+    ]
+    .into_iter()
+    .map(|m| m.to_const())
+    .collect();
+
+    let labels: Vec<OperationRef> = vec![
         Matrix::new(1, 1, vec![1.0]),
         Matrix::new(1, 1, vec![0.0]),
         Matrix::new(1, 1, vec![1.0]),
         Matrix::new(1, 1, vec![0.0]),
-    ];
+    ]
+    .into_iter()
+    .map(|m| m.to_const())
+    .collect();
 
-    let mut input_ph = InputPlaceholder::new();
-    let mut label_ph = InputPlaceholder::new();
+    let net = FeedforwardModule::new(
+        FeedforwardLayers::new(2)
+            .push(5, ActivationClosure::new(|op| op.sigmoid()))
+            .push(1, ActivationClosure::new(|op| op.sigmoid())),
+    );
 
-    let net = linear(&linear(&input_ph, 2, 5).sigmoid(), 5, 1).sigmoid();
+    let mut optim = OptimizerBase::new(SGDOptimizerRunner::new(0.01), &net);
 
-    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
-    net.add_to_optimizer(&mut optim);
-
-    let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
+    let loss_f = |y: OperationRef, label: OperationRef| (y - label).pow(2.0).sum();
 
     for _ in 0..200000 {
         let mut loss_sum: f32 = 0.0;
         for (input, label) in inputs.iter().zip(labels.iter()) {
-            input_ph.set_input(input.clone());
-            label_ph.set_input(label.clone());
+            let y = net.run(input);
+            let mut loss = loss_f(y.clone(), label.clone());
+            loss_sum += loss.as_ref().get_value()[0][0];
 
-            let loss = loss_f.run();
-            loss_sum += loss[0][0];
+            if loss_sum < 0.001 {
+                println!(
+                    "y[{}], label[{}]",
+                    y.as_ref().get_value()[0][0],
+                    label.as_ref().get_value()[0][0]
+                );
+            }
 
-            loss_f.back();
+            loss.back();
         }
 
         optim.step();
-        println!("Loss: {}", loss_sum);
+        println!("Loss: {}\n\n", loss_sum);
     }
 }

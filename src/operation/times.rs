@@ -3,6 +3,8 @@ use crate::{
     operation::{Operation, UnaryOperation, UnaryOperationRunner},
 };
 
+use super::OperationRef;
+
 struct TimesRunner {
     value: f32,
 }
@@ -16,17 +18,17 @@ impl UnaryOperationRunner for TimesRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        child.back_grad(Matrix::new(
-            grad.height(),
-            grad.width(),
-            grad.chain_data(|di| di.map(|v| self.value * v).collect()),
-        ));
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        Matrix::new(
+            delta.height(),
+            delta.width(),
+            delta.chain_data(|di| di.map(|v| self.value * v).collect()),
+        )
     }
 }
 
-impl Operation {
+impl OperationRef {
     pub fn times(self, value: f32) -> Self {
-        UnaryOperation::new(self, TimesRunner { value })
+        UnaryOperation::new(&self, TimesRunner { value })
     }
 }

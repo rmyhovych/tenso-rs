@@ -6,16 +6,16 @@ use std::{
 
 use plotters::prelude::*;
 use rand::{seq::index::sample, thread_rng};
-use tenso_rs::operation::{input::InputPlaceholder, Operation};
-use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
-use tenso_rs::{matrix::Matrix, optim::RunningOptimizer};
-
-fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
-    let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
-    let biases = Matrix::randn(out_size, 1, 0.0, 1.0).as_variable();
-
-    weights.mmul(input.clone()) + biases
-}
+use tenso_rs::{
+    activation::{sigmoid::Sigmoid, ActivationClosure},
+    matrix::Matrix,
+    module::{
+        feedforward::{FeedforwardLayers, FeedforwardModule},
+        Module,
+    },
+    optim::OptimizerBase,
+};
+use tenso_rs::{operation::OperationRef, optim::sgd::SGDOptimizerRunner};
 
 fn read_binary_file(filename: &str) -> Vec<u8> {
     match File::open(filename) {
@@ -34,45 +34,45 @@ fn read_binary_file(filename: &str) -> Vec<u8> {
     }
 }
 
-fn to_vectors(raw_data: Vec<u8>, len: usize) -> Vec<Matrix> {
+fn to_vectors(raw_data: Vec<u8>, len: usize) -> Vec<OperationRef> {
     debug_assert_eq!(raw_data.len() % len, 0);
 
-    let mut matrices = Vec::<Matrix>::with_capacity(raw_data.len() / len);
+    let mut ops = Vec::<OperationRef>::with_capacity(raw_data.len() / len);
 
     for chunk in raw_data.chunks(len) {
         let mat = Matrix::new(len, 1, chunk.iter().map(|v| *v as f32).collect());
-        matrices.push(mat);
+        ops.push(mat.to_const());
     }
 
-    matrices
+    ops
 }
 
-fn to_one_hot_vectors(raw_data: Vec<u8>, len: usize) -> Vec<Matrix> {
-    let mut matrices = Vec::<Matrix>::with_capacity(raw_data.len() / len);
+fn to_one_hot_vectors(raw_data: Vec<u8>, len: usize) -> Vec<OperationRef> {
+    let mut ops = Vec::<OperationRef>::with_capacity(raw_data.len() / len);
 
     for value in raw_data {
         let mut one_hot: Vec<f32> = vec![0.0; len];
         one_hot[value as usize] = 1.0;
 
         let mat = Matrix::new(len, 1, one_hot);
-        matrices.push(mat);
+        ops.push(mat.to_const());
     }
 
-    matrices
+    ops
 }
 
-fn is_accurate(y: &Matrix, label: &Matrix) -> bool {
+fn is_accurate(y: &OperationRef, label: &OperationRef) -> bool {
     let mut max_index: usize = 0;
     let mut max_val: f32 = 0.0;
     let mut max_real_index = 0;
 
     for i in 0..10 {
-        let label_val = label[i][0];
+        let label_val = label.as_ref().get_value()[i][0];
         if label_val == 1.0 {
             max_real_index = i;
         }
 
-        let val = y[i][0];
+        let val = y.as_ref().get_value()[i][0];
         if val > max_val {
             max_index = i;
             max_val = val;
@@ -84,7 +84,7 @@ fn is_accurate(y: &Matrix, label: &Matrix) -> bool {
 
 fn plot_data(losses: Vec<f32>, accuracies: Vec<f32>) -> Result<(), Box<dyn Error>> {
     let root = BitMapBackend::new("examples/mnist_result.png", (640, 480)).into_drawing_area();
-    root.fill(&WHITE);
+    root.fill(&WHITE)?;
     let root = root.margin(10, 10, 10, 10);
 
     let mut chart = ChartBuilder::on(&root)
@@ -96,7 +96,7 @@ fn plot_data(losses: Vec<f32>, accuracies: Vec<f32>) -> Result<(), Box<dyn Error
         // Finally attach a coordinate on the drawing area and make a chart context
         .build_cartesian_2d(
             0f32..(losses.len().max(accuracies.len()) as f32),
-            0f32..1f32,
+            0f32..1.1f32,
         )?;
 
     // Then we can draw a mesh
@@ -140,44 +140,44 @@ fn main() {
     let in_size: usize = 28 * 28;
     let out_size: usize = 10;
 
-    let inputs: Vec<Matrix> = to_vectors(image_data, in_size);
-    let labels: Vec<Matrix> = to_one_hot_vectors(label_data, out_size);
+    let inputs: Vec<OperationRef> = to_vectors(image_data, in_size);
+    let labels: Vec<OperationRef> = to_one_hot_vectors(label_data, out_size);
 
-    let mut input_ph = InputPlaceholder::new();
-    let mut label_ph = InputPlaceholder::new();
+    let net = FeedforwardModule::new(
+        FeedforwardLayers::new(in_size)
+            .push(16, Sigmoid)
+            .push(16, Sigmoid)
+            .push(16, Sigmoid)
+            .push(out_size, Sigmoid),
+    );
 
-    let mut net = linear(&input_ph, in_size, 16).sigmoid();
-    net = linear(&net, 16, out_size).sigmoid();
-
-    let mut optim = RunningOptimizer::new(SGDOptimizerRunner::new(0.01));
-    net.add_to_optimizer(&mut optim);
-
-    let mut loss_f = (label_ph.clone() - net.clone()).pow(2.0).sum();
+    let mut optim = OptimizerBase::new(SGDOptimizerRunner::new(0.0025), &net);
 
     let mut losses: Vec<f32> = Vec::new();
     let mut accuracies: Vec<f32> = Vec::new();
 
+    let loss_f = |y: OperationRef, label: OperationRef| (y - label).pow(2.0).sum();
+
     let mut rng = thread_rng();
     for _ in 0..20000 {
         let mut loss_sum: f32 = 0.0;
+
+        optim.zero_grad();
 
         let mut n_accurate: u32 = 0;
         for (input, label) in sample(&mut rng, inputs.len(), SAMPLE_SIZE)
             .into_iter()
             .map(|index| (&inputs[index], &labels[index]))
         {
-            input_ph.set_input(input.clone());
-            label_ph.set_input(label.clone());
+            let y = net.run(input);
+            let mut loss = loss_f(y.clone(), label.clone());
+            loss_sum += loss.as_ref().get_value()[0][0];
 
-            let loss = loss_f.run();
-            loss_sum += loss[0][0];
-
-            let net_out = net.get_output();
-            if is_accurate(&net_out, label) {
+            if is_accurate(&y, label) {
                 n_accurate += 1;
             }
 
-            loss_f.back();
+            loss.back();
         }
 
         optim.step();
@@ -185,8 +185,8 @@ fn main() {
         losses.push(loss_sum / SAMPLE_SIZE as f32);
         accuracies.push(n_accurate as f32 / SAMPLE_SIZE as f32);
 
-        println!("Accuracy: {}", accuracies.last().unwrap());
-        println!("Loss: {}\n", losses.last().unwrap());
+        // println!("Accuracy: {}", accuracies.last().unwrap());
+        // println!("Loss: {}\n", losses.last().unwrap());
     }
 
     plot_data(losses, accuracies).unwrap();

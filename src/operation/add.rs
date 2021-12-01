@@ -5,7 +5,9 @@ use crate::{
     operation::{BinaryOperation, BinaryOperationRunner, Operation},
 };
 
-struct AddRunner;
+use super::OperationRef;
+
+pub struct AddRunner;
 
 impl BinaryOperationRunner for AddRunner {
     fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
@@ -19,16 +21,20 @@ impl BinaryOperationRunner for AddRunner {
         Matrix::new(input_left.height(), input_left.width(), out_data)
     }
 
-    fn grad(&self, child_left: &mut Operation, child_right: &mut Operation, grad: &Matrix) {
-        child_left.back_grad(grad.clone());
-        child_right.back_grad(grad.clone());
+    fn grad(
+        &self,
+        _input_left: &Matrix,
+        _input_right: &Matrix,
+        delta: &Matrix,
+    ) -> (Matrix, Matrix) {
+        (delta.clone(), delta.clone())
     }
 }
 
-impl Add for Operation {
-    type Output = Operation;
+impl Add for OperationRef {
+    type Output = OperationRef;
 
-    fn add(self, rhs: Operation) -> Self::Output {
-        BinaryOperation::new(self, rhs, AddRunner)
+    fn add(self, rhs: OperationRef) -> Self::Output {
+        BinaryOperation::new(&self, &rhs, AddRunner)
     }
 }
