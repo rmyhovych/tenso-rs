@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use std::{cell::Ref, ops::Mul};
 
 use crate::{
     matrix::Matrix,
@@ -8,34 +8,41 @@ use crate::{
 struct MulRunner;
 
 impl BinaryOperationRunner for MulRunner {
-    fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
+    fn run(&self, input_left: Ref<Matrix>, input_right: Ref<Matrix>) -> Matrix {
         debug_assert_eq!(input_left.width(), input_right.width());
         debug_assert_eq!(input_left.height(), input_right.height());
 
         Matrix::new(
             input_left.height(),
             input_left.width(),
-            input_left.chain_zip_data(input_right, |zip| {
+            input_left.chain_zip_data(&input_right, |zip| {
                 zip.map(|(v_left, v_right)| v_left * v_right).collect()
             }),
         )
     }
 
-    fn grad(&self, child_left: &mut Operation, child_right: &mut Operation, grad: &Matrix) {
-        child_right.back_grad(Matrix::new(
-            grad.height(),
-            grad.width(),
-            child_left
-                .get_output()
-                .chain_zip_data(grad, |zip| zip.map(|(v_grad, v)| v_grad * v).collect()),
-        ));
-        child_left.back_grad(Matrix::new(
-            grad.height(),
-            grad.width(),
-            child_right
-                .get_output()
-                .chain_zip_data(grad, |zip| zip.map(|(v_grad, v)| v_grad * v).collect()),
-        ));
+    fn grad(
+        &self,
+        input: (Ref<Matrix>, Ref<Matrix>),
+        _: Ref<Matrix>,
+        delta: Matrix,
+    ) -> (Matrix, Matrix) {
+        (
+            Matrix::new(
+                delta.height(),
+                delta.width(),
+                input
+                    .0
+                    .chain_zip_data(&delta, |zip| zip.map(|(v_grad, v)| v_grad * v).collect()),
+            ),
+            Matrix::new(
+                delta.height(),
+                delta.width(),
+                input
+                    .1
+                    .chain_zip_data(&delta, |zip| zip.map(|(v_grad, v)| v_grad * v).collect()),
+            ),
+        )
     }
 }
 

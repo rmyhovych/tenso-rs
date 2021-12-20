@@ -1,3 +1,5 @@
+use std::cell::Ref;
+
 use crate::{
     matrix::Matrix,
     operation::{Operation, UnaryOperation, UnaryOperationRunner},
@@ -8,7 +10,7 @@ struct TimesRunner {
 }
 
 impl UnaryOperationRunner for TimesRunner {
-    fn run(&self, input: &Matrix) -> Matrix {
+    fn run(&self, input: Ref<Matrix>) -> Matrix {
         Matrix::new(
             input.height(),
             input.width(),
@@ -16,12 +18,12 @@ impl UnaryOperationRunner for TimesRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        child.back_grad(Matrix::new(
-            grad.height(),
-            grad.width(),
-            grad.chain_data(|di| di.map(|v| self.value * v).collect()),
-        ));
+    fn grad(&self, _: Ref<Matrix>, _: Ref<Matrix>, delta: Matrix) -> Matrix {
+        Matrix::new(
+            delta.height(),
+            delta.width(),
+            delta.chain_data(|di| di.map(|v| self.value * v).collect()),
+        )
     }
 }
 

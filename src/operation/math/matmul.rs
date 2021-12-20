@@ -1,3 +1,5 @@
+use std::cell::Ref;
+
 use crate::{
     matrix::Matrix,
     operation::{BinaryOperation, BinaryOperationRunner, Operation},
@@ -6,7 +8,7 @@ use crate::{
 struct MatrixMultiplicationRunner;
 
 impl BinaryOperationRunner for MatrixMultiplicationRunner {
-    fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
+    fn run(&self, input_left: Ref<Matrix>, input_right: Ref<Matrix>) -> Matrix {
         debug_assert_eq!(input_left.width(), input_right.height());
 
         let mut result = Matrix::zeros(input_left.height(), input_right.width());
@@ -23,34 +25,35 @@ impl BinaryOperationRunner for MatrixMultiplicationRunner {
         result
     }
 
-    fn grad(&self, child_left: &mut Operation, child_right: &mut Operation, grad: &Matrix) {
-        let input_left = child_left.get_output();
-        let input_right = child_right.get_output();
-
-        let mut grad_left = Matrix::zeros(input_left.height(), input_left.width());
-        for y in 0..grad_left.height() {
-            for x in 0..grad_left.width() {
+    fn grad(
+        &self,
+        input: (Ref<Matrix>, Ref<Matrix>),
+        _: Ref<Matrix>,
+        delta: Matrix,
+    ) -> (Matrix, Matrix) {
+        let mut delta_left = Matrix::zeros(input.0.height(), input.0.width());
+        for y in 0..delta_left.height() {
+            for x in 0..delta_left.width() {
                 let mut val: f32 = 0.0;
-                for i in 0..grad.width() {
-                    val += grad[y][i] * input_right[x][i];
+                for i in 0..delta.width() {
+                    val += delta[y][i] * input.1[x][i];
                 }
-                grad_left[y][x] = val;
+                delta_left[y][x] = val;
             }
         }
 
-        let mut grad_right = Matrix::zeros(input_right.height(), input_right.width());
-        for y in 0..grad_right.height() {
-            for x in 0..grad_right.width() {
+        let mut delta_right = Matrix::zeros(input.1.height(), input.1.width());
+        for y in 0..delta_right.height() {
+            for x in 0..delta_right.width() {
                 let mut val: f32 = 0.0;
-                for i in 0..grad.height() {
-                    val += grad[i][x] * input_left[i][y];
+                for i in 0..delta.height() {
+                    val += delta[i][x] * input.0[i][y];
                 }
-                grad_right[y][x] = val;
+                delta_right[y][x] = val;
             }
         }
 
-        child_left.back_grad(grad_left);
-        child_right.back_grad(grad_right);
+        (delta_left, delta_right)
     }
 }
 

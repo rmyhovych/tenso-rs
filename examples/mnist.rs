@@ -6,9 +6,12 @@ use std::{
 
 use plotters::prelude::*;
 use rand::{seq::index::sample, thread_rng};
-use tenso_rs::operation::{input::InputPlaceholder, Operation};
 use tenso_rs::optim::{sgd::SGDOptimizerRunner, Optimizer};
 use tenso_rs::{matrix::Matrix, optim::RunningOptimizer};
+use tenso_rs::{
+    matrix::MatrixRef,
+    operation::{input::InputPlaceholder, Operation},
+};
 
 fn linear(input: &Operation, in_size: usize, out_size: usize) -> Operation {
     let weights = Matrix::randn(out_size, in_size, 0.0, 1.0).as_variable();
@@ -34,45 +37,47 @@ fn read_binary_file(filename: &str) -> Vec<u8> {
     }
 }
 
-fn to_vectors(raw_data: Vec<u8>, len: usize) -> Vec<Matrix> {
+fn to_vectors(raw_data: Vec<u8>, len: usize) -> Vec<MatrixRef> {
     debug_assert_eq!(raw_data.len() % len, 0);
 
-    let mut matrices = Vec::<Matrix>::with_capacity(raw_data.len() / len);
+    let mut matrices = Vec::<MatrixRef>::with_capacity(raw_data.len() / len);
 
     for chunk in raw_data.chunks(len) {
         let mat = Matrix::new(len, 1, chunk.iter().map(|v| *v as f32).collect());
-        matrices.push(mat);
+        matrices.push(MatrixRef::new(mat));
     }
 
     matrices
 }
 
-fn to_one_hot_vectors(raw_data: Vec<u8>, len: usize) -> Vec<Matrix> {
-    let mut matrices = Vec::<Matrix>::with_capacity(raw_data.len() / len);
+fn to_one_hot_vectors(raw_data: Vec<u8>, len: usize) -> Vec<MatrixRef> {
+    let mut matrices = Vec::<MatrixRef>::with_capacity(raw_data.len() / len);
 
     for value in raw_data {
         let mut one_hot: Vec<f32> = vec![0.0; len];
         one_hot[value as usize] = 1.0;
 
-        let mat = Matrix::new(len, 1, one_hot);
+        let mat = MatrixRef::new(Matrix::new(len, 1, one_hot));
         matrices.push(mat);
     }
 
     matrices
 }
 
-fn is_accurate(y: &Matrix, label: &Matrix) -> bool {
+fn is_accurate(y: &MatrixRef, label: &MatrixRef) -> bool {
     let mut max_index: usize = 0;
     let mut max_val: f32 = 0.0;
     let mut max_real_index = 0;
 
+    let y_val = y.get();
+    let label_val = label.get();
     for i in 0..10 {
-        let label_val = label[i][0];
+        let label_val = label_val[i][0];
         if label_val == 1.0 {
             max_real_index = i;
         }
 
-        let val = y[i][0];
+        let val = y_val[i][0];
         if val > max_val {
             max_index = i;
             max_val = val;
@@ -145,8 +150,8 @@ fn main() {
     let in_size: usize = 28 * 28;
     let out_size: usize = 10;
 
-    let inputs: Vec<Matrix> = to_vectors(image_data, in_size);
-    let labels: Vec<Matrix> = to_one_hot_vectors(label_data, out_size);
+    let inputs: Vec<MatrixRef> = to_vectors(image_data, in_size);
+    let labels: Vec<MatrixRef> = to_one_hot_vectors(label_data, out_size);
 
     let mut input_ph = InputPlaceholder::new();
     let mut label_ph = InputPlaceholder::new();
@@ -165,7 +170,6 @@ fn main() {
     let mut average_losses: Vec<f32> = Vec::new();
     let mut average_accuracies: Vec<f32> = Vec::new();
 
-
     const DISPLAY_ROLLING_AVERAGE: usize = 1000;
 
     let mut rng = thread_rng();
@@ -181,7 +185,7 @@ fn main() {
             label_ph.set_input(label.clone());
 
             let loss = loss_f.run();
-            loss_sum += loss[0][0];
+            loss_sum += loss.get()[0][0];
 
             let net_out = net.get_output();
             if is_accurate(&net_out, label) {

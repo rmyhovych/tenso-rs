@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::{cell::Ref, ops::Add};
 
 use crate::{
     matrix::Matrix,
@@ -8,20 +8,24 @@ use crate::{
 struct AddRunner;
 
 impl BinaryOperationRunner for AddRunner {
-    fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
+    fn run(&self, input_left: Ref<Matrix>, input_right: Ref<Matrix>) -> Matrix {
         debug_assert_eq!(input_left.width(), input_right.width());
         debug_assert_eq!(input_left.height(), input_right.height());
 
-        let out_data = input_left.chain_zip_data(input_right, |zip| {
+        let out_data = input_left.chain_zip_data(&input_right, |zip| {
             zip.map(|(v_left, v_right)| v_left + v_right).collect()
         });
 
         Matrix::new(input_left.height(), input_left.width(), out_data)
     }
 
-    fn grad(&self, child_left: &mut Operation, child_right: &mut Operation, grad: &Matrix) {
-        child_left.back_grad(grad.clone());
-        child_right.back_grad(grad.clone());
+    fn grad(
+        &self,
+        _: (Ref<Matrix>, Ref<Matrix>),
+        _: Ref<Matrix>,
+        delta: Matrix,
+    ) -> (Matrix, Matrix) {
+        (delta.clone(), delta.clone())
     }
 }
 

@@ -1,7 +1,9 @@
 use std::{
+    cell::{Ref, RefCell, RefMut},
     fmt::Display,
     iter::Zip,
     ops::{Index, IndexMut},
+    rc::Rc,
     slice::Iter,
 };
 
@@ -110,5 +112,44 @@ impl Display for Matrix {
             }
         }
         Ok(())
+    }
+}
+
+pub struct MatrixRef {
+    matrix: Rc<RefCell<Matrix>>,
+}
+
+impl MatrixRef {
+    pub fn new(matrix: Matrix) -> Self {
+        Self {
+            matrix: Rc::new(RefCell::new(matrix)),
+        }
+    }
+
+    pub fn get<'a>(&'a self) -> Ref<'a, Matrix> {
+        self.matrix.borrow()
+    }
+
+    pub fn get_mut<'a>(&'a mut self) -> RefMut<'a, Matrix> {
+        self.matrix.borrow_mut()
+    }
+
+    pub fn set(&mut self, matrix: Matrix) {
+        self.get_mut().set(matrix);
+    }
+}
+
+impl Display for MatrixRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mat = self.get();
+        mat.fmt(f)
+    }
+}
+
+impl Clone for MatrixRef {
+    fn clone(&self) -> Self {
+        Self {
+            matrix: Rc::clone(&self.matrix),
+        }
     }
 }

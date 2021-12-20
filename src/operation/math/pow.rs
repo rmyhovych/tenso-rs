@@ -1,3 +1,5 @@
+use std::cell::Ref;
+
 use crate::{
     matrix::Matrix,
     operation::{Operation, UnaryOperation, UnaryOperationRunner},
@@ -8,7 +10,7 @@ struct PowRunner {
 }
 
 impl UnaryOperationRunner for PowRunner {
-    fn run(&self, input: &Matrix) -> Matrix {
+    fn run(&self, input: Ref<Matrix>) -> Matrix {
         Matrix::new(
             input.height(),
             input.width(),
@@ -16,19 +18,16 @@ impl UnaryOperationRunner for PowRunner {
         )
     }
 
-    fn grad(&self, child: &mut Operation, grad: &Matrix) {
-        let child_in = child.get_output();
-        let child_grad = Matrix::new(
-            child_in.height(),
-            child_in.width(),
-            child_in.chain_zip_data(grad, |child_data| {
+    fn grad(&self, input: Ref<Matrix>, _: Ref<Matrix>, delta: Matrix) -> Matrix {
+        Matrix::new(
+            input.height(),
+            input.width(),
+            input.chain_zip_data(&delta, |child_data| {
                 child_data
                     .map(|(ci, gr)| gr * self.power * ci.powf(self.power - 1.0))
                     .collect()
             }),
-        );
-
-        child.back_grad(child_grad);
+        )
     }
 }
 
