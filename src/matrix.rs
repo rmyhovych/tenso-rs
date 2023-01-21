@@ -1,20 +1,26 @@
 use std::{
+    cell::{Ref, RefCell, RefMut},
     fmt::Display,
     iter::Zip,
-    ops::{Index, IndexMut},
+    ops::{DerefMut, Index, IndexMut},
+    rc::Rc,
     slice::Iter,
 };
 
 use rand::{distributions::Normal, Rng};
 
+use crate::operation::Operation;
+
+/* ---------------------------------------------------------------------- */
+
 #[derive(Clone)]
-pub struct Matrix {
+pub struct MatrixData {
     height: usize,
     width: usize,
     data: Vec<f32>,
 }
 
-impl Matrix {
+impl MatrixData {
     pub fn new(height: usize, width: usize, data: Vec<f32>) -> Self {
         Self {
             height,
@@ -54,7 +60,7 @@ impl Matrix {
         self.data.iter_mut().for_each(|v| *v = 0.0);
     }
 
-    pub fn set(&mut self, other: Matrix) {
+    pub fn set(&mut self, other: MatrixData) {
         self.width = other.width;
         self.height = other.height;
         self.data = other.data;
@@ -74,14 +80,14 @@ impl Matrix {
 
     pub fn chain_zip_data<T>(
         &self,
-        other: &Matrix,
+        other: &MatrixData,
         accessor: impl Fn(Zip<Iter<f32>, Iter<f32>>) -> T,
     ) -> T {
         accessor(self.data.iter().zip(other.data.iter()))
     }
 }
 
-impl Index<usize> for Matrix {
+impl Index<usize> for MatrixData {
     type Output = [f32];
 
     fn index<'a>(&'a self, i: usize) -> &'a [f32] {
@@ -90,14 +96,14 @@ impl Index<usize> for Matrix {
     }
 }
 
-impl IndexMut<usize> for Matrix {
+impl IndexMut<usize> for MatrixData {
     fn index_mut<'a>(&'a mut self, i: usize) -> &'a mut [f32] {
         let start = i * self.width;
         &mut self.data[start..start + self.width]
     }
 }
 
-impl Display for Matrix {
+impl Display for MatrixData {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         for y in 0..self.height {
             for x in 0..self.width {
@@ -110,5 +116,87 @@ impl Display for Matrix {
             }
         }
         Ok(())
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+pub struct Matrix {
+    data: Rc<RefCell<MatrixData>>,
+    grad: Rc<RefCell<MatrixData>>,
+
+    operation: Option<Box<dyn Operation>>,
+}
+
+impl Matrix {
+    pub fn new(data: MatrixData) -> Self {
+        let height = data.height;
+        let width = data.width;
+
+        Self {
+            data: Rc::new(RefCell::new(data)),
+            grad: Rc::new(RefCell::new(MatrixData::zeros(height, width))),
+
+            operation: None,
+        }
+    }
+
+    pub fn new_output<O: Operation + 'static>(data: MatrixData, operation: O) -> Self {
+        let height = data.height;
+        let width = data.width;
+
+        Self {
+            data: Rc::new(RefCell::new(data)),
+            grad: Rc::new(RefCell::new(MatrixData::zeros(height, width))),
+
+            operation: Some(Box::new(operation)),
+        }
+    }
+
+    pub fn data<'a>(&'a self) -> Ref<'a, MatrixData> {
+        self.data.as_ref().borrow()
+    }
+
+    pub fn data_mut<'a>(&'a mut self) -> RefMut<'a, MatrixData> {
+        self.data.as_ref().borrow_mut()
+    }
+
+    pub fn grad<'a>(&'a self) -> Ref<'a, MatrixData> {
+        self.grad.as_ref().borrow()
+    }
+
+    pub fn grad_mut<'a>(&'a mut self) -> RefMut<'a, MatrixData> {
+        self.grad.as_ref().borrow_mut()
+    }
+
+    pub fn back(&mut self) {
+        let width = self.data.borrow().width;
+        let height = self.data.borrow().height;
+
+        let delta = MatrixData {
+            width,
+            height,
+            data: (0..width * height).map(|_| 1.0).collect(),
+        };
+
+        self.back_delta(delta);
+    }
+
+    pub fn back_delta(&mut self, delta: MatrixData) {
+        let mut grad_guard = self.grad_mut();
+        let grad_ref = grad_guard.deref_mut();
+
+        debug_assert_eq!(delta.width, grad_ref.width);
+        debug_assert_eq!(delta.height, grad_ref.height);
+
+        for delta_val in delta.data {
+            for grad_val in grad_ref.data.iter_mut() {
+                *grad_val += delta_val;
+            }
+        }
+
+        if let Some(operation) = &self.operation {
+            operation.back_grad(delta);
+        }
     }
 }

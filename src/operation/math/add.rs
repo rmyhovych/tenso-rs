@@ -1,14 +1,11 @@
 use std::ops::Add;
 
-use crate::{
-    matrix::Matrix,
-    operation::{BinaryOperation, BinaryOperationRunner, Operation},
-};
+use crate::{matrix::Matrix, operation::BinaryOperationRunner};
 
 struct AddRunner;
 
 impl BinaryOperationRunner for AddRunner {
-    fn run(&self, input_left: &Matrix, input_right: &Matrix) -> Matrix {
+    fn run(&self, input_left: &MatrixData, input_right: &MatrixData) -> MatrixData {
         debug_assert_eq!(input_left.width(), input_right.width());
         debug_assert_eq!(input_left.height(), input_right.height());
 
