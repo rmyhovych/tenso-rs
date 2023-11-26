@@ -8,26 +8,26 @@ mod chunk;
 pub mod op;
 
 pub struct Matrix {
-    size: (usize, usize),
-    chunk_size: (usize, usize),
+    size: [usize; 2],
+    chunk_size: [usize; 2],
     chunks: Vec<MatrixChunk>,
 }
 
 impl Matrix {
-    pub fn new_zero(size: (usize, usize)) -> Self {
-        assert_ne!(size.0 * size.1, 0);
+    pub fn new_zero(size: [usize; 2]) -> Self {
+        assert_ne!(size[0] * size[1], 0);
 
         let chunk_size = MatrixChunk::get_chunk_size(size);
         Self {
             size,
             chunk_size,
-            chunks: (0..(chunk_size.0 * chunk_size.1))
+            chunks: (0..(chunk_size[0] * chunk_size[1]))
                 .map(|_| MatrixChunk::new())
                 .collect(),
         }
     }
 
-    pub fn new_randn(size: (usize, usize), mean: f32, std_dev: f32) -> Self {
+    pub fn new_randn(size: [usize; 2], mean: f32, std_dev: f32) -> Self {
         let distribution = Normal::new(mean as f64, std_dev as f64);
         let rng = &mut rand::thread_rng();
 
@@ -37,23 +37,23 @@ impl Matrix {
         result
     }
 
-    pub fn new_value(size: (usize, usize), value: f32) -> Self {
+    pub fn new_value(size: [usize; 2], value: f32) -> Self {
         let mut result = Self::new_zero(size);
         result.for_each_value_mut(&mut |_| value);
         result
     }
 
-    pub fn size(&self) -> (usize, usize) {
+    pub fn size(&self) -> [usize; 2] {
         self.size
     }
 
-    pub fn set(&mut self, index: (usize, usize), value: f32) {
+    pub fn set(&mut self, index: [usize; 2], value: f32) {
         let chunk_index = MatrixChunk::get_chunk_index(index);
         let chunk = self.get_chunk_mut(chunk_index);
         chunk.set_unbounded(index, value);
     }
 
-    pub fn get(&self, index: (usize, usize)) -> f32 {
+    pub fn get(&self, index: [usize; 2]) -> f32 {
         let chunk_index = MatrixChunk::get_chunk_index(index);
         let chunk = self.get_chunk(chunk_index);
         chunk.get_unbounded(index)
@@ -68,8 +68,8 @@ impl Matrix {
         let mut total_value = 0.0;
         self.for_each_value(&mut |v| total_value = func(total_value, v));
 
-        let mut result = Self::new_zero((1, 1));
-        result.set((0, 0), total_value);
+        let mut result = Self::new_zero([1, 1]);
+        result.set([0, 0], total_value);
         result
     }
 
@@ -102,13 +102,13 @@ impl Matrix {
     /* ------------------------------------------------- */
 
     fn for_each_value<TFuncType: FnMut(f32)>(&self, func: &mut TFuncType) {
-        for chunk_y in 0..self.chunk_size.0 {
-            for chunk_x in 0..self.chunk_size.1 {
-                let max_val = self.get_chunk_element_size((chunk_y, chunk_x));
+        for chunk_y in 0..self.chunk_size[0] {
+            for chunk_x in 0..self.chunk_size[1] {
+                let max_val = self.get_chunk_element_size([chunk_y, chunk_x]);
 
-                let chunk = self.get_chunk((chunk_y, chunk_x));
+                let chunk = self.get_chunk([chunk_y, chunk_x]);
                 chunk.for_each(&mut |coord, val| {
-                    if coord.0 < max_val.0 && coord.1 < max_val.1 {
+                    if coord[0] < max_val[0] && coord[1] < max_val[1] {
                         func(val);
                     }
                 });
@@ -117,13 +117,13 @@ impl Matrix {
     }
 
     fn for_each_value_mut<TFuncType: FnMut(f32) -> f32>(&mut self, func: &mut TFuncType) {
-        for chunk_y in 0..self.chunk_size.0 {
-            for chunk_x in 0..self.chunk_size.1 {
-                let max_val = self.get_chunk_element_size((chunk_y, chunk_x));
+        for chunk_y in 0..self.chunk_size[0] {
+            for chunk_x in 0..self.chunk_size[1] {
+                let max_val = self.get_chunk_element_size([chunk_y, chunk_x]);
 
-                let chunk = self.get_chunk_mut((chunk_y, chunk_x));
+                let chunk = self.get_chunk_mut([chunk_y, chunk_x]);
                 chunk.for_each_mut(&mut |coord, val| {
-                    if coord.0 < max_val.0 && coord.1 < max_val.1 {
+                    if coord[0] < max_val[0] && coord[1] < max_val[1] {
                         func(val)
                     } else {
                         0.0
@@ -133,20 +133,20 @@ impl Matrix {
         }
     }
 
-    fn get_chunk(&self, chunk_index: (usize, usize)) -> &MatrixChunk {
-        &self.chunks[chunk_index.0 * self.chunk_size.1 + chunk_index.1]
+    fn get_chunk(&self, chunk_index: [usize; 2]) -> &MatrixChunk {
+        &self.chunks[chunk_index[0] * self.chunk_size[1] + chunk_index[1]]
     }
 
-    fn get_chunk_mut(&mut self, chunk_index: (usize, usize)) -> &mut MatrixChunk {
-        &mut self.chunks[chunk_index.0 * self.chunk_size.1 + chunk_index.1]
+    fn get_chunk_mut(&mut self, chunk_index: [usize; 2]) -> &mut MatrixChunk {
+        &mut self.chunks[chunk_index[0] * self.chunk_size[1] + chunk_index[1]]
     }
 
-    fn get_chunk_element_size(&self, chunk_index: (usize, usize)) -> (usize, usize) {
-        if chunk_index.0 == self.chunk_size.0 - 1 || chunk_index.1 == self.chunk_size.1 - 1 {
+    fn get_chunk_element_size(&self, chunk_index: [usize; 2]) -> [usize; 2] {
+        if chunk_index[0] == self.chunk_size[0] - 1 || chunk_index[1] == self.chunk_size[1] - 1 {
             let size = MatrixChunk::get_element_size(chunk_index);
-            (self.size.0 - size.0, self.size.1 - size.1)
+            [self.size[0] - size[0], self.size[1] - size[1]]
         } else {
-            MatrixChunk::get_element_size((1, 1))
+            MatrixChunk::get_element_size([1, 1])
         }
     }
 }
@@ -172,19 +172,20 @@ impl Display for Matrix {
         };
 
         let mut max_dimension = 0;
-        for y in 0..self.size.0 {
-            for x in 0..self.size.1 {
-                let number = self.get((y, x));
+        for y in 0..self.size[0] {
+            for x in 0..self.size[1] {
+                let number = self.get([y, x]);
                 let num_dimension = number_dimension_fn(number);
                 max_dimension = max_dimension.max(num_dimension);
             }
         }
 
         let line_character_count =
-            self.size.1 as u32 * (max_dimension + 3 + NUMBER_SPACING) + NUMBER_SPACING;
+            self.size[1] as u32 * (max_dimension + 3 + NUMBER_SPACING) + NUMBER_SPACING;
 
-        let mut result =
-            String::with_capacity(((line_character_count + 3) * (self.size.0 as u32 + 2)) as usize);
+        let mut result = String::with_capacity(
+            ((line_character_count + 3) * (self.size[0] as u32 + 2)) as usize,
+        );
 
         result += " ";
         for _ in 0..line_character_count {
@@ -192,14 +193,14 @@ impl Display for Matrix {
         }
         result += " \n";
 
-        for y in 0..self.size.0 {
+        for y in 0..self.size[0] {
             result += "|";
             for _ in 0..NUMBER_SPACING {
                 result += " ";
             }
 
-            for x in 0..self.size.1 {
-                let number = self.get((y, x));
+            for x in 0..self.size[1] {
+                let number = self.get([y, x]);
                 let dimension = number_dimension_fn(number);
                 write!(result, "{:.2}", number)?;
 

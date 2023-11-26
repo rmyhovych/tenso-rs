@@ -14,42 +14,39 @@ impl MatrixChunk {
         }
     }
 
-    pub fn for_each<TFuncType: FnMut((usize, usize), f32)>(&self, func: &mut TFuncType) {
+    pub fn for_each<TFuncType: FnMut([usize; 2], f32)>(&self, func: &mut TFuncType) {
         let mut index = 0;
         for y in 0..CHUNK_WIDTH {
             for x in 0..CHUNK_WIDTH {
-                func((y, x), self.data[index]);
+                func([y, x], self.data[index]);
                 index += 1;
             }
         }
     }
 
-    pub fn for_each_mut<TFuncType: FnMut((usize, usize), f32) -> f32>(
-        &mut self,
-        func: &mut TFuncType,
-    ) {
+    pub fn for_each_mut<TFuncType: FnMut([usize; 2], f32) -> f32>(&mut self, func: &mut TFuncType) {
         let mut index = 0;
         for y in 0..CHUNK_WIDTH {
             for x in 0..CHUNK_WIDTH {
-                self.data[index] = func((y, x), self.data[index]);
+                self.data[index] = func([y, x], self.data[index]);
                 index += 1;
             }
         }
     }
 
-    pub fn set(&mut self, coord: (usize, usize), value: f32) {
+    pub fn set(&mut self, coord: [usize; 2], value: f32) {
         self.data[Self::coord_to_index(coord)] = value;
     }
 
-    pub fn get(&self, coord: (usize, usize)) -> f32 {
+    pub fn get(&self, coord: [usize; 2]) -> f32 {
         self.data[Self::coord_to_index(coord)]
     }
 
-    pub fn set_unbounded(&mut self, global_coord: (usize, usize), value: f32) {
+    pub fn set_unbounded(&mut self, global_coord: [usize; 2], value: f32) {
         self.set(Self::bound_coord(global_coord), value);
     }
 
-    pub fn get_unbounded(&self, global_coord: (usize, usize)) -> f32 {
+    pub fn get_unbounded(&self, global_coord: [usize; 2]) -> f32 {
         self.get(Self::bound_coord(global_coord))
     }
 
@@ -95,7 +92,7 @@ impl MatrixChunk {
         let mut result = Self::new();
         for y in 0..CHUNK_WIDTH {
             for x in 0..CHUNK_WIDTH {
-                result.set((y, x), self.get((x, y)));
+                result.set([y, x], self.get([x, y]));
             }
         }
         result
@@ -107,10 +104,10 @@ impl MatrixChunk {
             for x in 0..CHUNK_WIDTH {
                 let mut value: f32 = 0.0;
                 for i in 0..CHUNK_WIDTH {
-                    value += self.get((y, i)) * other.get((i, x));
+                    value += self.get([y, i]) * other.get([i, x]);
                 }
 
-                result.set((y, x), value);
+                result.set([y, x], value);
             }
         }
         result
@@ -118,31 +115,31 @@ impl MatrixChunk {
 
     /* ------------------------------------------------- */
 
-    pub fn get_chunk_index(data_index: (usize, usize)) -> (usize, usize) {
-        (
-            data_index.0 >> CHUNK_DIMENSION,
-            data_index.1 >> CHUNK_DIMENSION,
-        )
+    pub fn get_chunk_index(data_index: [usize; 2]) -> [usize; 2] {
+        [
+            data_index[0] >> CHUNK_DIMENSION,
+            data_index[1] >> CHUNK_DIMENSION,
+        ]
     }
 
-    pub fn get_chunk_size(data_size: (usize, usize)) -> (usize, usize) {
-        let index = Self::get_chunk_index((data_size.0 - 1, data_size.1 - 1));
-        (index.0 + 1, index.1 + 1)
+    pub fn get_chunk_size(data_size: [usize; 2]) -> [usize; 2] {
+        let index = Self::get_chunk_index([data_size[0] - 1, data_size[1] - 1]);
+        [index[0] + 1, index[1] + 1]
     }
 
-    pub fn get_element_size(chunk_size: (usize, usize)) -> (usize, usize) {
-        (CHUNK_WIDTH * chunk_size.0, CHUNK_WIDTH * chunk_size.1)
+    pub fn get_element_size(chunk_size: [usize; 2]) -> [usize; 2] {
+        [CHUNK_WIDTH * chunk_size[0], CHUNK_WIDTH * chunk_size[1]]
     }
 
     /* ------------------------------------------------- */
 
     #[inline]
-    fn bound_coord(coord: (usize, usize)) -> (usize, usize) {
-        (coord.0 & CHUNK_MASK, coord.1 & CHUNK_MASK)
+    fn bound_coord(coord: [usize; 2]) -> [usize; 2] {
+        [coord[0] & CHUNK_MASK, coord[1] & CHUNK_MASK]
     }
 
     #[inline]
-    fn coord_to_index(coord: (usize, usize)) -> usize {
-        (coord.0 << CHUNK_DIMENSION) + coord.1
+    fn coord_to_index(coord: [usize; 2]) -> usize {
+        (coord[0] << CHUNK_DIMENSION) + coord[1]
     }
 }

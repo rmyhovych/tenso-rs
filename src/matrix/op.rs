@@ -48,12 +48,12 @@ impl Matrix {
     }
 
     pub fn transpose(&self) -> Self {
-        let mut result = Self::new_zero((self.size.1, self.size.0));
+        let mut result = Self::new_zero([self.size[1], self.size[0]]);
 
-        for y in 0..self.chunk_size.0 {
-            for x in 0..self.chunk_size.1 {
-                let chunk = self.get_chunk((y, x));
-                result.chunks[x * self.chunk_size.0 + y] = chunk.transpose();
+        for y in 0..self.chunk_size[0] {
+            for x in 0..self.chunk_size[1] {
+                let chunk = self.get_chunk([y, x]);
+                result.chunks[x * self.chunk_size[0] + y] = chunk.transpose();
             }
         }
 
@@ -61,15 +61,15 @@ impl Matrix {
     }
 
     pub fn matmul(&self, other: &Self) -> Self {
-        debug_assert_eq!(self.size.1, other.size.0);
+        debug_assert_eq!(self.size[1], other.size[0]);
 
-        let mut result = Self::new_zero((self.size.0, other.size.1));
-        for chunk_y in 0..self.chunk_size.0 {
-            for chunk_x in 0..other.chunk_size.1 {
-                let result_chunk = result.get_chunk_mut((chunk_y, chunk_x));
-                for chunk_i in 0..self.chunk_size.1 {
-                    let chunk_left = self.get_chunk((chunk_y, chunk_i));
-                    let chunk_right = other.get_chunk((chunk_i, chunk_x));
+        let mut result = Self::new_zero([self.size[0], other.size[1]]);
+        for chunk_y in 0..self.chunk_size[0] {
+            for chunk_x in 0..other.chunk_size[1] {
+                let result_chunk = result.get_chunk_mut([chunk_y, chunk_x]);
+                for chunk_i in 0..self.chunk_size[1] {
+                    let chunk_left = self.get_chunk([chunk_y, chunk_i]);
+                    let chunk_right = other.get_chunk([chunk_i, chunk_x]);
                     let mm_result = chunk_left.matmul(&chunk_right);
                     result_chunk.binary_assign_operation(&mm_result, &|v0, v1| v0 + v1);
                 }

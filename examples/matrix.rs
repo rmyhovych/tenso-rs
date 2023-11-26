@@ -3,7 +3,7 @@ use std::time::Instant;
 use tenso_rs::matrix::Matrix;
 
 pub fn main() {
-    let size = (1, 2);
+    let size = [1, 2];
 
     let mut start = Instant::now();
     let mat = Matrix::new_randn(size, 0.0, 1.0);
