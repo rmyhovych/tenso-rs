@@ -38,16 +38,24 @@ impl MatrixChunk {
         self.data[Self::coord_to_index(coord)] = value;
     }
 
-    pub fn get(&self, coord: [usize; 2]) -> f32 {
-        self.data[Self::coord_to_index(coord)]
+    pub fn get(&self, coord: [usize; 2]) -> &f32 {
+        &self.data[Self::coord_to_index(coord)]
+    }
+
+    pub fn get_mut(&mut self, coord: [usize; 2]) -> &mut f32 {
+        &mut self.data[Self::coord_to_index(coord)]
     }
 
     pub fn set_unbounded(&mut self, global_coord: [usize; 2], value: f32) {
         self.set(Self::bound_coord(global_coord), value);
     }
 
-    pub fn get_unbounded(&self, global_coord: [usize; 2]) -> f32 {
+    pub fn get_unbounded(&self, global_coord: [usize; 2]) -> &f32 {
         self.get(Self::bound_coord(global_coord))
+    }
+
+    pub fn get_unbounded_mut(&mut self, global_coord: [usize; 2]) -> &mut f32 {
+        self.get_mut(Self::bound_coord(global_coord))
     }
 
     /* ------------------------------------------------- */
@@ -92,7 +100,7 @@ impl MatrixChunk {
         let mut result = Self::new();
         for y in 0..CHUNK_WIDTH {
             for x in 0..CHUNK_WIDTH {
-                result.set([y, x], self.get([x, y]));
+                result.set([y, x], *self.get([x, y]));
             }
         }
         result

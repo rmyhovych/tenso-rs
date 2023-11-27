@@ -1,4 +1,7 @@
-use std::fmt::{Display, Write};
+use std::{
+    fmt::{Display, Write},
+    ops::{Index, IndexMut},
+};
 
 use rand::distributions::{Distribution, Normal};
 
@@ -47,18 +50,6 @@ impl Matrix {
         self.size
     }
 
-    pub fn set(&mut self, index: [usize; 2], value: f32) {
-        let chunk_index = MatrixChunk::get_chunk_index(index);
-        let chunk = self.get_chunk_mut(chunk_index);
-        chunk.set_unbounded(index, value);
-    }
-
-    pub fn get(&self, index: [usize; 2]) -> f32 {
-        let chunk_index = MatrixChunk::get_chunk_index(index);
-        let chunk = self.get_chunk(chunk_index);
-        chunk.get_unbounded(index)
-    }
-
     /* ------------------------------------------------- */
 
     pub fn unordered_reduce_operation<TFuncType: Fn(f32, f32) -> f32>(
@@ -69,7 +60,7 @@ impl Matrix {
         self.for_each_value(&mut |v| total_value = func(total_value, v));
 
         let mut result = Self::new_zero([1, 1]);
-        result.set([0, 0], total_value);
+        result[[0, 0]] = total_value;
         result
     }
 
@@ -151,6 +142,24 @@ impl Matrix {
     }
 }
 
+impl Index<[usize; 2]> for Matrix {
+    type Output = f32;
+
+    fn index(&self, index: [usize; 2]) -> &Self::Output {
+        let chunk_index = MatrixChunk::get_chunk_index(index);
+        let chunk = self.get_chunk(chunk_index);
+        chunk.get_unbounded(index)
+    }
+}
+
+impl IndexMut<[usize; 2]> for Matrix {
+    fn index_mut(&mut self, index: [usize; 2]) -> &mut Self::Output {
+        let chunk_index = MatrixChunk::get_chunk_index(index);
+        let chunk = self.get_chunk_mut(chunk_index);
+        chunk.get_unbounded_mut(index)
+    }
+}
+
 impl Display for Matrix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         const NUMBER_SPACING: u32 = 2;
@@ -174,7 +183,7 @@ impl Display for Matrix {
         let mut max_dimension = 0;
         for y in 0..self.size[0] {
             for x in 0..self.size[1] {
-                let number = self.get([y, x]);
+                let number = self[[y, x]];
                 let num_dimension = number_dimension_fn(number);
                 max_dimension = max_dimension.max(num_dimension);
             }
@@ -200,7 +209,7 @@ impl Display for Matrix {
             }
 
             for x in 0..self.size[1] {
-                let number = self.get([y, x]);
+                let number = self[[y, x]];
                 let dimension = number_dimension_fn(number);
                 write!(result, "{:.2}", number)?;
 

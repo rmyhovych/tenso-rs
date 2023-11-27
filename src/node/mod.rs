@@ -17,3 +17,11 @@ impl NodeInternal for NodeVariable {
 pub struct Node {
     node: Rc<RefCell<dyn NodeInternal>>,
 }
+
+impl Node {
+    fn new<TNodeType: NodeInternal + 'static>(internal: TNodeType) -> Self {
+        Self {
+            node: Rc::new(RefCell::new(internal)),
+        }
+    }
+}
