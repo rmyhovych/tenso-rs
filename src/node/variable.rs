@@ -24,3 +24,4 @@ impl NodeInternal for NodeVariable {
         Some(self)
     }
 }
+    
