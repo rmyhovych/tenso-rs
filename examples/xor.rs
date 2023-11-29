@@ -54,23 +54,23 @@ fn main() {
         (xs, ys_exp)
     };
 
-    let w0 = NodeVariable::new(Matrix::new_randn([4096, 2], 0.0, 1.0));
-    let b0: Node = NodeVariable::new(Matrix::new_randn([4096, 1], 0.0, 1.0));
+    let w0 = NodeVariable::new(Matrix::new_randn([2, 2], 0.0, 1.0));
+    let b0: Node = NodeVariable::new(Matrix::new_randn([2, 1], 0.0, 1.0));
 
-    let w1: Node = NodeVariable::new(Matrix::new_randn([1, 4096], 0.0, 1.0));
+    let w1: Node = NodeVariable::new(Matrix::new_randn([1, 2], 0.0, 1.0));
     let b1: Node = NodeVariable::new(Matrix::new_randn([1, 1], 0.0, 1.0));
 
     let run_fn = |x: &Node| -> Node {
         let h0 = w0.matmul(x).add(&b0);
         let y = w1.matmul(&h0).add(&b1);
 
-        y
+        y.sigmoid()
     };
 
-    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
+    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.1));
     optimizer.add_variables(vec![w0.clone(), b0.clone(), w1.clone(), b1.clone()]);
 
-    for i in 0..100 {
+    for i in 0..10000 {
         let mut full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
         for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
             let y = run_fn(x);

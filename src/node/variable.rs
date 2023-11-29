@@ -17,6 +17,10 @@ impl NodeVariable {
         &mut self.value
     }
 
+    pub fn get_gradient(&self) -> &Matrix {
+        &self.gradient
+    }
+
     pub fn take_gradient(&mut self) -> Matrix {
         self.gradient.take_clear()
     }

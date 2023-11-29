@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, Mul};
 
 use crate::{
     matrix::Matrix,
@@ -73,9 +73,11 @@ impl OpUnary for OpUnaryPow {
         input.unary_operation(|v| v.powf(self.pow))
     }
 
-    fn grad(&self, _input: &Matrix, delta: &Matrix) -> Matrix {
-        let inverse_power = 1.0 / self.pow;
-        delta.unary_operation(|v| v.powf(inverse_power))
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        let derivative_pow = self.pow - 1.0;
+        input
+            .unary_operation(|v| self.pow * v.powf(derivative_pow))
+            .mul(delta)
     }
 }
 
@@ -87,6 +89,27 @@ impl OpUnary for OpUnaryTranspose {
 
     fn grad(&self, _input: &Matrix, delta: &Matrix) -> Matrix {
         delta.transpose()
+    }
+}
+
+struct OpUnarySigmoid;
+impl OpUnarySigmoid {
+    fn sigmoid(val: f32) -> f32 {
+        1.0 / (1.0 + (-val).exp())
+    }
+}
+impl OpUnary for OpUnarySigmoid {
+    fn run(&self, input: &Matrix) -> Matrix {
+        input.unary_operation(|v| Self::sigmoid(v))
+    }
+
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        input
+            .unary_operation(|v| {
+                let s = Self::sigmoid(v);
+                s * (1.0 - s)
+            })
+            .mul(delta)
     }
 }
 
@@ -111,5 +134,9 @@ impl Node {
 
     pub fn transpose(&self) -> Self {
         self.op_unary(OpUnaryTranspose)
+    }
+
+    pub fn sigmoid(&self) -> Self {
+        self.op_unary(OpUnarySigmoid)
     }
 }
