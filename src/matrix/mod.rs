@@ -50,6 +50,17 @@ impl Matrix {
         self.size
     }
 
+    pub fn take_clear(&mut self) -> Self {
+        let chunk_copy = self.chunks.clone();
+        self.chunks.iter_mut().for_each(|c| c.clear());
+
+        Self {
+            size: self.size,
+            chunk_size: self.chunk_size,
+            chunks: chunk_copy,
+        }
+    }
+
     /* ------------------------------------------------- */
 
     pub fn unordered_reduce_operation<TFuncType: Fn(f32, f32) -> f32>(
@@ -157,6 +168,16 @@ impl IndexMut<[usize; 2]> for Matrix {
         let chunk_index = MatrixChunk::get_chunk_index(index);
         let chunk = self.get_chunk_mut(chunk_index);
         chunk.get_unbounded_mut(index)
+    }
+}
+
+impl Clone for Matrix {
+    fn clone(&self) -> Self {
+        Self {
+            size: self.size,
+            chunk_size: self.chunk_size,
+            chunks: self.chunks.clone(),
+        }
     }
 }
 

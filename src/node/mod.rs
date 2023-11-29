@@ -1,3 +1,4 @@
+pub mod constant;
 pub mod op;
 pub mod variable;
 
@@ -5,17 +6,17 @@ use self::variable::NodeVariable;
 use crate::matrix::Matrix;
 use std::{
     cell::{Ref, RefCell, RefMut},
-    ops::Deref,
+    fmt::Display,
+    ops::{Deref, DerefMut},
     rc::Rc,
 };
 
 pub trait NodeInternal {
     fn get_value(&self) -> &Matrix;
-    fn get_value_mut(&mut self) -> &mut Matrix;
 
     fn back_delta(&mut self, delta: Matrix);
 
-    fn is_variable(&mut self) -> Option<&mut NodeVariable> {
+    fn try_get_variable(&mut self) -> Option<&mut NodeVariable> {
         None
     }
 }
@@ -38,6 +39,30 @@ impl<'a> Deref for NodeValueRef<'a> {
     }
 }
 
+pub struct NodeInternalRef<'a> {
+    node_ref: RefMut<'a, dyn NodeInternal>,
+}
+
+impl<'a> NodeInternalRef<'a> {
+    fn new(node_ref: RefMut<'a, dyn NodeInternal>) -> Self {
+        Self { node_ref }
+    }
+}
+
+impl<'a> Deref for NodeInternalRef<'a> {
+    type Target = dyn NodeInternal + 'a;
+
+    fn deref(&self) -> &Self::Target {
+        self.node_ref.deref()
+    }
+}
+
+impl<'a> DerefMut for NodeInternalRef<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.node_ref.deref_mut()
+    }
+}
+
 pub struct Node {
     node: Rc<RefCell<dyn NodeInternal>>,
 }
@@ -53,12 +78,38 @@ impl Node {
         self.node.borrow().get_value().size()
     }
 
-    fn back(&mut self) {
+    pub fn back(&self) {
         let delta = Matrix::new_value(self.size(), 1.0);
-        self.node.borrow_mut().back_delta(delta);
+        self.back_delta(delta);
     }
 
-    pub fn get<'a>(&'a self) -> NodeValueRef<'a> {
+    pub fn is_variable(&self) -> bool {
+        self.node.borrow_mut().try_get_variable().is_some()
+    }
+
+    pub fn get_value<'a>(&'a self) -> NodeValueRef<'a> {
         NodeValueRef::<'a>::new(self.node.borrow())
+    }
+
+    pub fn get_internal<'a>(&'a self) -> NodeInternalRef<'a> {
+        NodeInternalRef::<'a>::new(self.node.borrow_mut())
+    }
+
+    fn back_delta(&self, delta: Matrix) {
+        self.node.borrow_mut().back_delta(delta);
+    }
+}
+
+impl Clone for Node {
+    fn clone(&self) -> Self {
+        Self {
+            node: self.node.clone(),
+        }
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get_value().fmt(f)
     }
 }

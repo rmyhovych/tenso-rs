@@ -1,17 +1,23 @@
 const CHUNK_DIMENSION: usize = 4;
 const CHUNK_WIDTH: usize = 1 << CHUNK_DIMENSION;
+const CHUNL_SIZE: usize = CHUNK_WIDTH * CHUNK_WIDTH;
 
 const CHUNK_MASK: usize = CHUNK_WIDTH - 1;
 
+#[derive(Clone)]
 pub struct MatrixChunk {
-    data: [f32; CHUNK_WIDTH * CHUNK_WIDTH],
+    data: [f32; CHUNL_SIZE],
 }
 
 impl MatrixChunk {
     pub fn new() -> Self {
         Self {
-            data: [0.0; CHUNK_WIDTH * CHUNK_WIDTH],
+            data: [0.0; CHUNL_SIZE],
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.data.iter_mut().for_each(|v| *v = 0.0);
     }
 
     pub fn for_each<TFuncType: FnMut([usize; 2], f32)>(&self, func: &mut TFuncType) {
@@ -73,7 +79,9 @@ impl MatrixChunk {
     where
         TFuncType: Fn(f32) -> f32,
     {
-        let mut result = Self::new();
+        let mut result = Self {
+            data: self.data.clone(),
+        };
         result.unary_assign_operation(func);
         result
     }
@@ -91,7 +99,9 @@ impl MatrixChunk {
     where
         TFuncType: Fn(f32, f32) -> f32,
     {
-        let mut result = Self::new();
+        let mut result = Self {
+            data: self.data.clone(),
+        };
         result.binary_assign_operation(other, func);
         result
     }
