@@ -1,13 +1,11 @@
-use std::{
-    fmt::{Display, Write},
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
 use rand::distributions::{Distribution, Normal};
 
 use self::chunk::MatrixChunk;
 
 mod chunk;
+pub mod display;
 pub mod op;
 
 pub struct Matrix {
@@ -43,6 +41,29 @@ impl Matrix {
     pub fn new_value(size: [usize; 2], value: f32) -> Self {
         let mut result = Self::new_zero(size);
         result.for_each_value_mut(&mut |_| value);
+        result
+    }
+
+    pub fn new_slice(size: [usize; 2], slice: &[f32]) -> Self {
+        assert_eq!(size[0] * size[1], slice.len());
+
+        let chunk_size = MatrixChunk::get_chunk_size(size);
+        let mut result = Self {
+            size,
+            chunk_size,
+            chunks: (0..(chunk_size[0] * chunk_size[1]))
+                .map(|_| MatrixChunk::new())
+                .collect(),
+        };
+
+        let mut slice_index = 0;
+        for y in 0..size[0] {
+            for x in 0..size[1] {
+                result[[y, x]] = slice[slice_index];
+                slice_index += 1;
+            }
+        }
+
         result
     }
 
@@ -178,78 +199,5 @@ impl Clone for Matrix {
             chunk_size: self.chunk_size,
             chunks: self.chunks.clone(),
         }
-    }
-}
-
-impl Display for Matrix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const NUMBER_SPACING: u32 = 2;
-
-        let number_dimension_fn = |num: f32| -> u32 {
-            let mut number = num.floor() as i64;
-            if number == 0 {
-                1
-            } else {
-                let mut dimension = if number < 0 { 1 } else { 0 };
-                number = number.abs();
-                while number > 0 {
-                    dimension += 1;
-                    number /= 10;
-                }
-
-                dimension
-            }
-        };
-
-        let mut max_dimension = 0;
-        for y in 0..self.size[0] {
-            for x in 0..self.size[1] {
-                let number = self[[y, x]];
-                let num_dimension = number_dimension_fn(number);
-                max_dimension = max_dimension.max(num_dimension);
-            }
-        }
-
-        let line_character_count =
-            self.size[1] as u32 * (max_dimension + 3 + NUMBER_SPACING) + NUMBER_SPACING;
-
-        let mut result = String::with_capacity(
-            ((line_character_count + 3) * (self.size[0] as u32 + 2)) as usize,
-        );
-
-        result += " ";
-        for _ in 0..line_character_count {
-            result += "-";
-        }
-        result += " \n";
-
-        for y in 0..self.size[0] {
-            result += "|";
-            for _ in 0..NUMBER_SPACING {
-                result += " ";
-            }
-
-            for x in 0..self.size[1] {
-                let number = self[[y, x]];
-                let dimension = number_dimension_fn(number);
-                write!(result, "{:.2}", number)?;
-
-                for _ in 0..NUMBER_SPACING {
-                    result += " ";
-                }
-
-                for _ in 0..(max_dimension - dimension) {
-                    result += " ";
-                }
-            }
-            result += "|\n";
-        }
-        result += " ";
-        for _ in 0..line_character_count {
-            result += "-";
-        }
-        result += " \n";
-
-        write!(f, "{}", result)
     }
 }

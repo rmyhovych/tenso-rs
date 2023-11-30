@@ -1,52 +1,79 @@
 use tenso_rs::{
     matrix::Matrix,
-    node::{constant::NodeConstant, variable::NodeVariable, Node},
+    model::{linear::ModelLinear, Model},
+    node::{constant::NodeConstant, Node},
     optim::{sgd::OptimFuncSGD, Optimizer},
 };
 
 fn get_input_matrices() -> Vec<Matrix> {
-    let mut input_matrices = vec![
-        Matrix::new_zero([2, 1]),
-        Matrix::new_zero([2, 1]),
-        Matrix::new_zero([2, 1]),
-        Matrix::new_zero([2, 1]),
-    ];
-
-    for (i, mat) in input_matrices.iter_mut().enumerate() {
-        mat[[0, 0]] = if i % 2 == 0 { 1.0 } else { 0.0 };
-        mat[[1, 0]] = if i / 2 == 0 { 1.0 } else { 0.0 }
-    }
-
-    input_matrices
+    vec![
+        Matrix::new_slice([2, 1], &[0.0, 0.0]),
+        Matrix::new_slice([2, 1], &[1.0, 0.0]),
+        Matrix::new_slice([2, 1], &[0.0, 1.0]),
+        Matrix::new_slice([2, 1], &[1.0, 1.0]),
+    ]
 }
 
-fn get_output_matrices(input: &Vec<Matrix>) -> Vec<Matrix> {
-    let mut output_matrices = vec![
-        Matrix::new_zero([1, 1]),
-        Matrix::new_zero([1, 1]),
-        Matrix::new_zero([1, 1]),
-        Matrix::new_zero([1, 1]),
-    ];
+fn get_output_matrices() -> Vec<Matrix> {
+    vec![
+        Matrix::new_slice([1, 1], &[0.0]),
+        Matrix::new_slice([1, 1], &[1.0]),
+        Matrix::new_slice([1, 1], &[1.0]),
+        Matrix::new_slice([1, 1], &[0.0]),
+    ]
+}
 
-    output_matrices
-        .iter_mut()
-        .zip(input.iter())
-        .for_each(|(v_out, v_in)| {
-            let diff = (v_in[[0, 0]] - v_in[[1, 0]]).abs();
-            v_out[[0, 0]] = if diff < 0.001 { 0.0 } else { 1.0 }
-        });
+struct ModelXOR {
+    layers: Vec<ModelLinear>,
+}
 
-    output_matrices
+impl ModelXOR {
+    fn new<const LAYER_COUNT: usize>(layer_sizes: [usize; LAYER_COUNT]) -> Self {
+        assert!(layer_sizes.len() >= 2);
+
+        let layer_count = layer_sizes.len();
+        let mut layers = Vec::with_capacity(layer_count - 1);
+        let mut size_in = layer_sizes[0];
+        for i in 1..(layer_count - 1) {
+            let size_out = layer_sizes[i];
+            layers.push(ModelLinear::new(size_in, size_out));
+            size_in = size_out;
+        }
+
+        let size_out = layer_sizes[layer_count - 1];
+        layers.push(ModelLinear::new_activated(size_in, size_out, |n| {
+            n.sigmoid()
+        }));
+
+        Self { layers }
+    }
+}
+
+impl Model for ModelXOR {
+    fn run(&self, x: &Node) -> Node {
+        let mut y = x.clone();
+        for layer in &self.layers {
+            y = layer.run(&y);
+        }
+
+        y
+    }
+
+    fn for_each_variable<TFuncType: FnMut(&Node)>(&self, func: &mut TFuncType) {
+        for layer in &self.layers {
+            layer.for_each_variable(func);
+        }
+    }
 }
 
 fn main() {
     let (xs, ys_exp) = {
-        let input = get_input_matrices();
-        let ys_exp = get_output_matrices(&input)
+        let xs = get_input_matrices()
             .into_iter()
             .map(|m| NodeConstant::new(m))
             .collect::<Vec<Node>>();
-        let xs = input
+
+        let ys_exp = get_output_matrices()
             .into_iter()
             .map(|m| NodeConstant::new(m))
             .collect::<Vec<Node>>();
@@ -54,39 +81,29 @@ fn main() {
         (xs, ys_exp)
     };
 
-    let w0 = NodeVariable::new(Matrix::new_randn([2, 2], 0.0, 1.0));
-    let b0: Node = NodeVariable::new(Matrix::new_randn([2, 1], 0.0, 1.0));
+    let model = ModelXOR::new([2, 2, 4, 2, 1]);
 
-    let w1: Node = NodeVariable::new(Matrix::new_randn([1, 2], 0.0, 1.0));
-    let b1: Node = NodeVariable::new(Matrix::new_randn([1, 1], 0.0, 1.0));
+    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
+    optimizer.add_model(&model);
 
-    let run_fn = |x: &Node| -> Node {
-        let h0 = w0.matmul(x).add(&b0);
-        let y = w1.matmul(&h0).add(&b1);
-
-        y.sigmoid()
-    };
-
-    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.1));
-    optimizer.add_variables(vec![w0.clone(), b0.clone(), w1.clone(), b1.clone()]);
-
-    for i in 0..10000 {
-        let mut full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
+    let mut full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
+    for i in 0..1000 {
+        full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
         for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
-            let y = run_fn(x);
-            let error = y_exp.sub(&y).pow(2.0).sum();
+            let y = model.run(x);
+            let error = y.sub(y_exp).pow(2.0).sum();
             full_error = full_error.add(&error);
         }
 
-        //println!("Error [{}]:\n{}", i, full_error);
         full_error.back();
         optimizer.step();
     }
 
     println!("------------------------------------------------------------------------");
+    println!("Error:\n{}", full_error);
 
     for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
-        let y = run_fn(x);
+        let y = model.run(x);
         println!("X:\n{}Y\n{}YExp\n{}", x, y, y_exp);
     }
 }

@@ -13,16 +13,11 @@ impl NodeVariable {
         Node::new(Self { value, gradient })
     }
 
-    pub fn get_value_mut(&mut self) -> &mut Matrix {
-        &mut self.value
-    }
-
-    pub fn get_gradient(&self) -> &Matrix {
-        &self.gradient
-    }
-
-    pub fn take_gradient(&mut self) -> Matrix {
-        self.gradient.take_clear()
+    pub fn access<TAccessorType: FnMut(&mut Matrix, &mut Matrix)>(
+        &mut self,
+        accessor: &mut TAccessorType,
+    ) {
+        accessor(&mut self.value, &mut self.gradient);
     }
 }
 

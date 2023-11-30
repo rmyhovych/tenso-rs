@@ -1,6 +1,9 @@
 pub mod sgd;
 
-use crate::node::{variable::NodeVariable, Node};
+use crate::{
+    model::Model,
+    node::{variable::NodeVariable, Node},
+};
 
 pub trait OptimFunc {
     fn step(&mut self, variable: &mut NodeVariable);
@@ -19,9 +22,20 @@ impl<TOptimFunc: OptimFunc> Optimizer<TOptimFunc> {
         }
     }
 
-    pub fn add_variables(&mut self, nodes: Vec<Node>) {
-        self.variables
-            .append(&mut nodes.into_iter().filter(|n| n.is_variable()).collect());
+    pub fn add_variables(&mut self, nodes: &Vec<Node>) {
+        for node in nodes {
+            if node.is_variable() {
+                self.variables.push(node.clone());
+            }
+        }
+    }
+
+    pub fn add_model<TModelType: Model>(&mut self, model: &TModelType) {
+        model.for_each_variable(&mut |var| {
+            if var.is_variable() {
+                self.variables.push(var.clone());
+            }
+        });
     }
 
     pub fn step(&mut self) {

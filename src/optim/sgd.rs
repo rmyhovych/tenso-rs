@@ -1,5 +1,7 @@
 use std::ops::{Mul, Sub};
 
+use crate::node::variable::NodeVariable;
+
 use super::OptimFunc;
 
 pub struct OptimFuncSGD {
@@ -13,10 +15,10 @@ impl OptimFuncSGD {
 }
 
 impl OptimFunc for OptimFuncSGD {
-    fn step(&mut self, variable: &mut crate::node::variable::NodeVariable) {
-        let gradient = variable.take_gradient().mul(self.lr);
-
-        let value: &mut crate::matrix::Matrix = variable.get_value_mut();
-        *value = value.sub(&gradient);
+    fn step(&mut self, variable: &mut NodeVariable) {
+        variable.access(&mut |value, gradient| {
+            *value = value.sub(&gradient.mul(self.lr));
+            gradient.take_clear();
+        });
     }
 }
