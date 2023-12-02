@@ -1,24 +1,27 @@
-use std::ops::Deref;
+use std::{fmt::Display, ops::Deref};
 
 use crate::{
     matrix::Matrix,
     node::{variable::NodeVariable, Node},
 };
 
-use super::Model;
+use super::{
+    activation::{Activation, EmptyActivation},
+    Model,
+};
 
 pub struct ModelLinear {
     weights: Node,
     biases: Node,
-    activation: Box<dyn Fn(&Node) -> Node>,
+    activation: Box<dyn Activation>,
 }
 
 impl ModelLinear {
     pub fn new(size_in: usize, size_out: usize) -> Self {
-        Self::new_model(size_in, size_out, Self::empty_activation)
+        Self::new_model(size_in, size_out, EmptyActivation)
     }
 
-    pub fn new_activated<TActivationType: Fn(&Node) -> Node + 'static>(
+    pub fn new_activated<TActivationType: Activation + 'static>(
         size_in: usize,
         size_out: usize,
         activation: TActivationType,
@@ -26,7 +29,7 @@ impl ModelLinear {
         Self::new_model(size_in, size_out, activation)
     }
 
-    fn new_model<TActivationType: Fn(&Node) -> Node + 'static>(
+    fn new_model<TActivationType: Activation + 'static>(
         size_in: usize,
         size_out: usize,
         activation: TActivationType,
@@ -37,19 +40,27 @@ impl ModelLinear {
             activation: Box::new(activation),
         }
     }
-
-    fn empty_activation(node: &Node) -> Node {
-        node.clone()
-    }
 }
 
 impl Model for ModelLinear {
     fn run(&self, x: &Node) -> Node {
-        self.activation.deref()(&self.weights.matmul(x).add(&self.biases))
+        self.activation
+            .run(&self.weights.matmul(x).add(&self.biases))
     }
 
     fn for_each_variable<TFuncType: FnMut(&Node)>(&self, func: &mut TFuncType) {
         func(&self.weights);
         func(&self.biases);
+    }
+}
+
+impl Display for ModelLinear {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Weights:\n")?;
+        self.weights.fmt(f)?;
+        f.write_str("Biases:\n")?;
+        self.biases.fmt(f)?;
+
+        Ok(())
     }
 }

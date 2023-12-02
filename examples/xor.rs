@@ -1,6 +1,12 @@
+use std::fmt::Display;
+
 use tenso_rs::{
     matrix::Matrix,
-    model::{linear::ModelLinear, Model},
+    model::{
+        activation::{relu::ActivationRelu, sigmoid::ActivationSigmoid},
+        linear::ModelLinear,
+        Model,
+    },
     node::{constant::NodeConstant, Node},
     optim::{sgd::OptimFuncSGD, Optimizer},
 };
@@ -36,14 +42,20 @@ impl ModelXOR {
         let mut size_in = layer_sizes[0];
         for i in 1..(layer_count - 1) {
             let size_out = layer_sizes[i];
-            layers.push(ModelLinear::new(size_in, size_out));
+            layers.push(ModelLinear::new_activated(
+                size_in,
+                size_out,
+                ActivationSigmoid,
+            ));
             size_in = size_out;
         }
 
         let size_out = layer_sizes[layer_count - 1];
-        layers.push(ModelLinear::new_activated(size_in, size_out, |n| {
-            n.sigmoid()
-        }));
+        layers.push(ModelLinear::new_activated(
+            size_in,
+            size_out,
+            ActivationSigmoid,
+        ));
 
         Self { layers }
     }
@@ -66,6 +78,17 @@ impl Model for ModelXOR {
     }
 }
 
+impl Display for ModelXOR {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, layer) in self.layers.iter().enumerate() {
+            f.write_fmt(format_args!("\tLayer {}:\n", i))?;
+            layer.fmt(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 fn main() {
     let (xs, ys_exp) = {
         let xs = get_input_matrices()
@@ -81,29 +104,33 @@ fn main() {
         (xs, ys_exp)
     };
 
-    let model = ModelXOR::new([2, 2, 4, 2, 1]);
+    let model = ModelXOR::new([2, 16, 1]);
 
     let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
     optimizer.add_model(&model);
 
-    let mut full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
-    for i in 0..1000 {
-        full_error = NodeConstant::new(Matrix::new_zero([1, 1]));
+    let mut last_error = 0.0;
+    for _ in 0..50000 {
+        last_error = 0.0;
         for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
-            let y = model.run(x);
-            let error = y.sub(y_exp).pow(2.0).sum();
-            full_error = full_error.add(&error);
+            let y: Node = model.run(x);
+            let diff = y_exp.sub(&y);
+            let error = diff.pow(2.0).mean();
+            error.back();
+
+            last_error += error.get_value()[[0, 0]];
         }
 
-        full_error.back();
         optimizer.step();
     }
 
-    println!("------------------------------------------------------------------------");
-    println!("Error:\n{}", full_error);
+    //println!("{}", model);
 
+    //println!("------------------------------------------------------------------------");
     for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
         let y = model.run(x);
         println!("X:\n{}Y\n{}YExp\n{}", x, y, y_exp);
     }
+
+    println!("Error: {:.3}\n", last_error);
 }

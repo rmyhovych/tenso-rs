@@ -58,17 +58,6 @@ impl OpBinary for OpBinaryAdd {
     }
 }
 
-struct OpBinarySub;
-impl OpBinary for OpBinarySub {
-    fn run(&self, input: (&Matrix, &Matrix)) -> Matrix {
-        input.0 - input.1
-    }
-
-    fn grad(&self, _input: (&Matrix, &Matrix), delta: &Matrix) -> (Matrix, Matrix) {
-        (delta.clone(), -1.0 * delta)
-    }
-}
-
 struct OpBinaryMul;
 impl OpBinary for OpBinaryMul {
     fn run(&self, input: (&Matrix, &Matrix)) -> Matrix {
@@ -106,7 +95,7 @@ impl Node {
     }
 
     pub fn sub(&self, other: &Node) -> Self {
-        self.op_binary(OpBinarySub, &other)
+        self.add(&other.times(-1.0))
     }
 
     pub fn mul(&self, other: &Node) -> Self {

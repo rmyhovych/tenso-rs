@@ -65,6 +65,19 @@ impl OpUnary for OpUnarySum {
     }
 }
 
+struct OpUnaryMean;
+impl OpUnary for OpUnaryMean {
+    fn run(&self, input: &Matrix) -> Matrix {
+        let count: f32 = (input.size()[0] * input.size()[1]) as f32;
+        input.sum().mul(1.0 / count)
+    }
+
+    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
+        let count = (input.size()[0] * input.size()[1]) as f32;
+        Matrix::new_value(input.size(), delta[[0, 0]] / count)
+    }
+}
+
 struct OpUnaryPow {
     pow: f32,
 }
@@ -92,27 +105,6 @@ impl OpUnary for OpUnaryTranspose {
     }
 }
 
-struct OpUnarySigmoid;
-impl OpUnarySigmoid {
-    fn sigmoid(val: f32) -> f32 {
-        1.0 / (1.0 + (-val).exp())
-    }
-}
-impl OpUnary for OpUnarySigmoid {
-    fn run(&self, input: &Matrix) -> Matrix {
-        input.unary_operation(|v| Self::sigmoid(v))
-    }
-
-    fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
-        input
-            .unary_operation(|v| {
-                let s = Self::sigmoid(v);
-                s * (1.0 - s)
-            })
-            .mul(delta)
-    }
-}
-
 /* --------------------------------------------------------------------------------- */
 
 impl Node {
@@ -128,15 +120,15 @@ impl Node {
         self.op_unary(OpUnarySum)
     }
 
+    pub fn mean(&self) -> Self {
+        self.op_unary(OpUnaryMean)
+    }
+
     pub fn pow(&self, pow: f32) -> Self {
         self.op_unary(OpUnaryPow { pow })
     }
 
     pub fn transpose(&self) -> Self {
         self.op_unary(OpUnaryTranspose)
-    }
-
-    pub fn sigmoid(&self) -> Self {
-        self.op_unary(OpUnarySigmoid)
     }
 }

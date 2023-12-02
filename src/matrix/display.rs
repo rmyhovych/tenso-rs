@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Formatter, Write};
 
 use super::Matrix;
 
@@ -30,7 +30,7 @@ fn get_column_width(matrix: &Matrix, x: usize) -> u32 {
 }
 
 impl Display for Matrix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let precision: usize = match f.precision() {
             Some(p) => p,
             None => 2,
