@@ -67,6 +67,15 @@ impl Matrix {
         result
     }
 
+    pub fn new_one_hot(index: usize, count: usize) -> Self {
+        let mut data = Vec::<f32>::with_capacity(count);
+        for i in 0..count {
+            data.push(if i == index { 1.0 } else { 0.0 });
+        }
+
+        Self::new_slice([1, count], data.as_slice())
+    }
+
     pub fn size(&self) -> [usize; 2] {
         self.size
     }

@@ -45,7 +45,7 @@ impl ModelXOR {
             layers.push(ModelLinear::new_activated(
                 size_in,
                 size_out,
-                ActivationLeakyRelu::new(0.1),
+                ActivationSigmoid,
             ));
             size_in = size_out;
         }
@@ -106,11 +106,11 @@ fn main() {
 
     let model = ModelXOR::new([2, 16, 16, 1]);
 
-    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
+    let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.1));
     optimizer.add_model(&model);
 
     let mut last_error = 0.0;
-    for _ in 0..50000 {
+    for _ in 0..10000 {
         last_error = 0.0;
         for (x, y_exp) in xs.iter().zip(ys_exp.iter()) {
             let y: Node = model.run(x);
