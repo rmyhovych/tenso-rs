@@ -104,7 +104,7 @@ fn main() {
         (xs, ys_exp)
     };
 
-    let model = ModelXOR::new([2, 16, 1]);
+    let model = ModelXOR::new([2, 24, 1]);
 
     let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
     optimizer.add_model(&model);
