@@ -59,7 +59,7 @@ impl Model for ModelMnist {
 
 fn main() {
     const CHUNK_SIZE: usize = 16;
-    const TRAIN_SIZE: usize = 2048;
+    const TRAIN_SIZE: usize = 8192;
 
     let dataset = MnistDataset::load(
         "data/mnist/train-images-idx3-ubyte",
@@ -85,7 +85,7 @@ fn main() {
         .collect();
     ys_exp.drain(TRAIN_SIZE..ys_exp.len());
 
-    let model = ModelMnist::new([MnistEntry::IMAGE_WIDTH * MnistEntry::IMAGE_WIDTH, 16, 10]);
+    let model = ModelMnist::new([MnistEntry::IMAGE_WIDTH * MnistEntry::IMAGE_WIDTH, 16, 16, 10]);
 
     let mut optim = Optimizer::new(OptimFuncSGD::new(0.001));
     optim.add_model(&model);
