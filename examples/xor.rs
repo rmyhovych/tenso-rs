@@ -3,7 +3,7 @@ use std::fmt::Display;
 use tenso_rs::{
     matrix::Matrix,
     model::{
-        activation::{relu::ActivationRelu, sigmoid::ActivationSigmoid},
+        activation::{leaky_relu::ActivationLeakyRelu, sigmoid::ActivationSigmoid},
         linear::ModelLinear,
         Model,
     },
@@ -45,7 +45,7 @@ impl ModelXOR {
             layers.push(ModelLinear::new_activated(
                 size_in,
                 size_out,
-                ActivationSigmoid,
+                ActivationLeakyRelu::new(0.1),
             ));
             size_in = size_out;
         }
@@ -104,7 +104,7 @@ fn main() {
         (xs, ys_exp)
     };
 
-    let model = ModelXOR::new([2, 24, 1]);
+    let model = ModelXOR::new([2, 16, 16, 1]);
 
     let mut optimizer = Optimizer::new(OptimFuncSGD::new(0.01));
     optimizer.add_model(&model);
