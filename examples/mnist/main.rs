@@ -1,7 +1,13 @@
+use std::ops::Mul;
+
 use dataset::{MnistDataset, MnistEntry};
 use tenso_rs::{
     matrix::Matrix,
-    model::{activation::{sigmoid::ActivationSigmoid, relu::ActivationRelu}, linear::ModelLinear, Model},
+    model::{
+        activation::{relu::ActivationRelu, sigmoid::ActivationSigmoid, softmax::ActivationSoftmax},
+        linear::ModelLinear,
+        Model,
+    },
     node::{constant::NodeConstant, Node},
     optim::{sgd::OptimFuncSGD, Optimizer},
 };
@@ -33,7 +39,7 @@ impl ModelMnist {
         layers.push(ModelLinear::new_activated(
             size_in,
             size_out,
-            ActivationSigmoid,
+            ActivationSoftmax,
         ));
 
         Self { layers }
@@ -58,8 +64,8 @@ impl Model for ModelMnist {
 }
 
 fn main() {
-    const CHUNK_SIZE: usize = 16;
-    const TRAIN_SIZE: usize = 8192;
+    const CHUNK_SIZE: usize = 32;
+    const TRAIN_SIZE: usize = 60000;
 
     let dataset = MnistDataset::load(
         "data/mnist/train-images-idx3-ubyte",
@@ -85,26 +91,42 @@ fn main() {
         .collect();
     ys_exp.drain(TRAIN_SIZE..ys_exp.len());
 
-    let model = ModelMnist::new([MnistEntry::IMAGE_WIDTH * MnistEntry::IMAGE_WIDTH, 16, 16, 10]);
+    let model = ModelMnist::new([
+        MnistEntry::IMAGE_WIDTH * MnistEntry::IMAGE_WIDTH,
+        16,
+        16,
+        10,
+    ]);
 
-    let mut optim = Optimizer::new(OptimFuncSGD::new(0.001));
+    let mut optim = Optimizer::new(OptimFuncSGD::new(0.01));
     optim.add_model(&model);
 
-    for i in 0..1000 {
-        let mut error_mean = 0.0;
+    for _ in 0..10 {
         for chunk_start in (0..xs.len()).step_by(CHUNK_SIZE) {
             let chunk_end = (chunk_start + CHUNK_SIZE).min(xs.len());
             for c in chunk_start..chunk_end {
                 let y = model.run(&xs[c]);
                 let error = y.sub(&ys_exp[c]).pow(2.0).mean();
                 error.back();
-
-                error_mean += error.get_value()[[0, 0]];
             }
 
             optim.step();
         }
+    }
 
-        println!("Error {}: {:.2}", i, error_mean / xs.len() as f32);
+    for i in 0..4 {
+        println!("==================================================================");
+        let y = model.run(&xs[i]);
+        let error = y.sub(&ys_exp[i]).pow(2.0).mean();
+        println!(
+            "X:\n{}",
+            xs[i]
+                .get_value()
+                .reshape([MnistEntry::IMAGE_WIDTH, MnistEntry::IMAGE_WIDTH])
+                .mul(100.0)
+        );
+        println!("Y:\n{}", y);
+        println!("YExp:\n{}", ys_exp[i]);
+        println!("Error:\n{}", error);
     }
 }

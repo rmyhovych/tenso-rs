@@ -76,6 +76,19 @@ impl Matrix {
         Self::new_slice([1, count], data.as_slice())
     }
 
+    pub fn reshape(&self, new_size: [usize; 2]) -> Self {
+        assert_eq!(new_size[0] * new_size[1], self.size[0] * self.size[1]);
+
+        let mut raw_data = Vec::with_capacity(new_size[0] * new_size[1]);
+        for y in 0..self.size[0] {
+            for x in 0..self.size[1] {
+                raw_data.push(self[[y, x]]);
+            }
+        }
+
+        Self::new_slice(new_size, raw_data.as_slice())
+    }
+
     pub fn size(&self) -> [usize; 2] {
         self.size
     }

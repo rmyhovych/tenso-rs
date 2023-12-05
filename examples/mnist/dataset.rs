@@ -1,6 +1,6 @@
 use std::{
     fs::{metadata, File},
-    os::unix::fs::FileExt,
+    io::Read,
 };
 
 pub struct MnistEntry {
@@ -55,14 +55,14 @@ impl MnistDataset {
 
     fn read_binary_file(filename: &str) -> Vec<u8> {
         match File::open(filename) {
-            Ok(file) => {
+            Ok(mut file) => {
                 let file_len = match metadata(filename) {
                     Ok(meta) => meta.len(),
                     Err(_) => 0,
                 };
 
                 let mut buffer: Vec<u8> = vec![0; file_len as usize];
-                file.read_at(buffer.as_mut_slice(), 0)
+                file.read_exact(buffer.as_mut_slice())
                     .expect("Buffer Overflow");
 
                 buffer
