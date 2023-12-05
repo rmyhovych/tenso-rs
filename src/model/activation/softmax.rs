@@ -19,7 +19,10 @@ impl OpUnary for OpUnarySoftmax {
     }
 
     fn grad(&self, input: &Matrix, delta: &Matrix) -> Matrix {
-        
+
+        // 23,   -5
+        // 0.1,  0.2
+        // 0.33, 0.67
     }
 }
 
